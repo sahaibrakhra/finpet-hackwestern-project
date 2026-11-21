@@ -49,6 +49,7 @@ struct MascotEditor: View {
                 }
                 .frame(maxWidth: .infinity).padding(16)
                 .background(library.activeBackground ?? mint, in: RoundedRectangle(cornerRadius: 22))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
                 if step == 1 { controls }
             }.padding(20)
         }

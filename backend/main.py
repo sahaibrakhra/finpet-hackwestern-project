@@ -44,7 +44,7 @@ ANIMATION_BASE = (
     "Fixed static camera, no zoom, no cuts. The background must stay the exact same flat single "
     "color for the whole clip, with no ground, floor, shadow, particles or text. "
     "The whole character stays fully in frame at all times, including hands and arms while they move: "
-    "keep every limb well inside the frame edges with empty space on both sides. "
+    "keep every limb well inside the frame edges with plenty of empty space on both sides. "
 )
 ANIMATIONS = {
     "idle": "The character stands and idles: gentle breathing, a soft sway, a slow blink, relaxed arms.",
@@ -156,7 +156,7 @@ def _video_bytes(video) -> bytes:
 
 
 def _generate_video(still_png: bytes, motion_prompt: str) -> bytes:
-    """Image-to-video with the cheapest settings: short duration, 360p, portrait."""
+    """Image-to-video with the cheapest settings: short duration, 360p, landscape."""
     # Omni video is served by the v1beta Interactions API.
     client = _client(api_version="v1beta")
     duration = int(_env("ANIM_SECONDS", "3"))
@@ -171,7 +171,7 @@ def _generate_video(still_png: bytes, motion_prompt: str) -> bytes:
                 "type": "video",
                 "duration": f"{duration}s",
                 "resolution": _env("ANIM_RESOLUTION", "360p"),
-                "aspect_ratio": "9:16",
+                "aspect_ratio": "16:9",
                 "delivery": "inline",
             },
         )
@@ -243,8 +243,9 @@ def create_animation(
     except (UnidentifiedImageError, OSError, ValueError):
         raise HTTPException(400, "That avatar is not a readable image.")
 
-    # Re-fit onto the canvas with side margin (a no-op for new avatars; shrinks older, wider ones).
-    still = media.png_bytes(media.flatten_on_color(media.layout_on_canvas(rgba), bg))
+    # 16:9 first frame. The app draws it at the mascot box's full height, so its left/right edges
+    # fall outside the visible box and an arm swinging wide is only ever cut by the box edge.
+    still = media.png_bytes(media.flatten_on_color(media.layout_for_video(rgba), bg))
     mp4 = _generate_video(still, ANIMATIONS[kind])
     fps = int(_env("ANIM_FPS", "10"))
     try:
