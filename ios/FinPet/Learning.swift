@@ -24,11 +24,11 @@ struct Question {
 enum LessonLibrary {
     static let daily = units.flatMap(\.lessons)
     static let units = [
+        LearningUnit(title: "Investing basics", lessons: [investments, fundFees, portfolio] + PracticeWorkshop.investing.map(\.lesson)),
         LearningUnit(title: "Tax-Free Savings Accounts", lessons: [tfsa, tfsaRoom, tfsaTiming] + PracticeWorkshop.tfsa.map(\.lesson)),
         LearningUnit(title: "Registered Retirement Savings Plans", lessons: [rrsp, rrspWithdrawals, rrspCompare] + PracticeWorkshop.rrsp.map(\.lesson)),
         LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals, fhsaPlan] + PracticeWorkshop.fhsa.map(\.lesson)),
         LearningUnit(title: "Credit and borrowing", lessons: [credit, cardPayment, loans] + PracticeWorkshop.credit.map(\.lesson)),
-        LearningUnit(title: "Investing basics", lessons: [investments, fundFees, portfolio] + PracticeWorkshop.investing.map(\.lesson)),
         LearningUnit(title: "Long-term planning", lessons: [compounding, retirement, retirementGap] + PracticeWorkshop.planning.map(\.lesson))
     ]
 
