@@ -63,7 +63,6 @@ enum PetColor: String, CaseIterable {
 // Shared avatar for Home, lessons, customization, and Friends.
 struct Pet: View {
     let color: PetColor
-    var accessory = "Scarf"
     var photo: Data?
     var mood: PetMood = .idle
 
@@ -71,7 +70,7 @@ struct Pet: View {
         ZStack(alignment: .bottomTrailing) {
             if let photo, let image = UIImage(data: photo) {
                 // Generated full-body avatar (transparent background): animated when clips are saved, never cropped.
-                AnimatedAvatar(mood: mood, fallback: image, accessory: accessory)
+                AnimatedAvatar(mood: mood, fallback: image)
             } else {
                 // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
@@ -114,13 +113,6 @@ struct Pet: View {
                 }
             }
 
-        }
-        .overlay {
-            if photo == nil {
-                MascotAccessory(name: accessory,
-                                pose: AccessoryPose(x: 0.5, crown: 0.39, neck: 0.81, angle: 0, headWidth: 0.56),
-                                generated: false)
-            }
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityLabel("Mascot")

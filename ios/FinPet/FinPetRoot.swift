@@ -27,7 +27,6 @@ private enum Sheet: Identifiable {
 struct FinPetRoot: View {
     @AppStorage("finpet.ref.name") private var name = "Loonie"
     @AppStorage("finpet.ref.color") private var color: PetColor = .leaf
-    @AppStorage("finpet.ref.accessory") private var accessory = "Scarf"
     @AppStorage("finpet.ref.personality") private var personality = "Just tryna be normal"
     @AppStorage("finpet.ref.photo") private var photo = Data()
     @AppStorage("finpet.education.history") private var history = Data()
@@ -94,7 +93,7 @@ struct FinPetRoot: View {
         .fullScreenCover(item: $sheet) { item in
             switch item {
             case .setup:
-                MascotEditor(name: $name, color: $color, accessory: $accessory, personality: $personality,
+                MascotEditor(name: $name, color: $color, personality: $personality,
                              photo: $photo, close: { sheet = nil })
             case .lesson(let lesson, let key):
                 Quiz(pet: pet(), lesson: lesson, completed: { score in
@@ -160,7 +159,7 @@ struct FinPetRoot: View {
     }
 
     private func pet() -> Pet {
-        Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo)
+        Pet(color: color, photo: photo.isEmpty ? nil : photo)
     }
 
     private func dateKey(_ date: Date, monthly: Bool = false) -> String {
@@ -409,7 +408,7 @@ struct FinPetRoot: View {
                     HStack(spacing: 8) {
                         HStack(spacing: -9) {
                             pet().frame(width: 46)
-                            Pet(color: friend.color, accessory: "None").frame(width: 46)
+                            Pet(color: friend.color).frame(width: 46)
                         }
                         VStack(alignment: .leading, spacing: 3) {
                             Text("You + \(friend.name)").font(.headline)

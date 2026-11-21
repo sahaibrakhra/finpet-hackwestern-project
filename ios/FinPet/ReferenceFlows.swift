@@ -4,7 +4,6 @@ import PhotosUI
 struct MascotEditor: View {
     @Binding var name: String
     @Binding var color: PetColor
-    @Binding var accessory: String
     @Binding var personality: String
     @Binding var photo: Data
     let close: () -> Void
@@ -34,7 +33,7 @@ struct MascotEditor: View {
             VStack(alignment: .leading, spacing: 17) {
                 Text("Customize your mascot").font(.system(size: 31, weight: .heavy))
                 VStack(spacing: 5) {
-                    Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo, mood: previewMood)
+                    Pet(color: color, photo: photo.isEmpty ? nil : photo, mood: previewMood)
                         .frame(width: photo.isEmpty ? 140 : 190)
                         .opacity(generating ? 0.35 : 1)
                         .overlay { if generating { ProgressView() } }
@@ -56,9 +55,6 @@ struct MascotEditor: View {
                 name = petName
                 close()
             }.padding(.horizontal, 20).padding(.vertical, 8).background(cream)
-        }
-        .onAppear {
-            if accessory == "Grad cap" { accessory = "None" }
         }
         .task(id: selection) {
             guard let selection else { return }
@@ -149,8 +145,6 @@ struct MascotEditor: View {
                     }.buttonStyle(.plain)
                 }
             }
-            fieldLabel("Accessory")
-            options(["None", "Scarf", "Toque"], selected: $accessory)
             fieldLabel("Personality")
             options(profiles, selected: $personality)
         }

@@ -5,7 +5,6 @@ import SwiftUI
 struct AnimatedAvatar: View {
     let mood: PetMood
     let fallback: UIImage
-    let accessory: String
     @State private var start = Date()
 
     var body: some View {
@@ -15,19 +14,14 @@ struct AnimatedAvatar: View {
             if let resolved {
                 TimelineView(.animation) { context in
                     let index = frameIndex(resolved, at: context.date)
-                    framed(resolved.clip.frames[index], pose: resolved.clip.accessoryPoses[index])
+                    Image(uiImage: resolved.clip.frames[index]).resizable().scaledToFit()
                 }
             } else {
-                framed(fallback, pose: AccessoryPose(image: fallback))
+                Image(uiImage: fallback).resizable().scaledToFit()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onChange(of: mood) { _, _ in start = Date() }
-    }
-
-    private func framed(_ image: UIImage, pose: AccessoryPose) -> some View {
-        Image(uiImage: image).resizable().scaledToFit()
-            .overlay { MascotAccessory(name: accessory, pose: pose, generated: true) }
     }
 
     private func resolve(_ library: AvatarLibrary) -> (clip: AvatarClip, mood: PetMood)? {
