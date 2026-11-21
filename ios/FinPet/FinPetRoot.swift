@@ -137,7 +137,9 @@ struct FinPetRoot: View {
                     VStack(spacing: 4) {
                         Image(systemName: item.icon).font(.system(size: 18, weight: .semibold))
                             .frame(width: 54, height: 31)
-                            .background(page == item ? mint : .clear, in: Capsule())
+                            .overlay(alignment: .bottom) {
+                                Capsule().fill(page == item ? forest : .clear).frame(width: 13, height: 2)
+                            }
                         Text(item.rawValue).font(.caption.weight(page == item ? .bold : .medium))
                     }
                     .frame(maxWidth: .infinity)
@@ -153,7 +155,7 @@ struct FinPetRoot: View {
 
     private func heading(_ title: String) -> some View {
         HStack {
-            Text(title).font(.system(size: 34, weight: .heavy))
+            Text(title).font(.system(.largeTitle, design: .serif, weight: .semibold))
             Spacer()
         }
     }
@@ -201,36 +203,37 @@ struct FinPetRoot: View {
     }
 
     private func home(mascotHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 15) {
-            heading(petName)
+        VStack(alignment: .leading, spacing: 21) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    heading(petName)
+                    Text(mood).font(.subheadline).foregroundStyle(muted)
+                }
+                Button { sheet = .setup } label: {
+                    Image(systemName: "slider.horizontal.3").font(.headline)
+                        .frame(width: 44, height: 44)
+                        .foregroundStyle(forest)
+                        .overlay { Circle().strokeBorder(line) }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Customize mascot")
+            }
             MascotStage(mascot: pet())
                 .frame(height: mascotHeight)
-                .overlay(alignment: .topLeading) {
-                    Text(mood).font(.footnote.weight(.semibold)).foregroundStyle(forest)
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(.white.opacity(0.9), in: Capsule())
-                        .padding(12).padding(.trailing, 50)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Challenge of the day").font(.title2.weight(.semibold)).padding(.bottom, 7)
+                ForEach(Array(dailyLessons.enumerated()), id: \.element.id) { index, lesson in
+                    if index > 0 { Divider() }
+                    challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", primary: index == 0)
                 }
-                .overlay(alignment: .topTrailing) {
-                    Button { sheet = .setup } label: {
-                        Image(systemName: "slider.horizontal.3").font(.headline).frame(width: 44, height: 44)
-                            .foregroundStyle(forest).background(.white.opacity(0.85), in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Customize mascot")
-                    .padding(12)
-                }
+            }
+            Divider()
             streakBoard
-            Text("Challenge of the day").font(.title2.bold())
-            ForEach(Array(dailyLessons.prefix(1))) { lesson in
-                challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", icon: "sun.max")
+            Divider()
+            VStack(alignment: .leading, spacing: 11) {
+                Text("Challenge of the month").font(.title2.weight(.semibold))
+                monthlyQuest
             }
-            if let bonus = dailyLessons.last {
-                Text("Bonus practice").font(.subheadline.bold()).foregroundStyle(muted)
-                challenge(bonus, key: "daily-\(dateKey(day))-\(bonus.id)", icon: "sparkles")
-            }
-            Text("Challenge of the month").font(.title2.bold())
-            monthlyQuest
         }
     }
 
@@ -256,23 +259,23 @@ struct FinPetRoot: View {
                     .accessibilityLabel(date.formatted(.dateTime.weekday(.wide)) + (done ? ", practised" : ", no practice"))
                 }
             }
-        }.petCard()
+        }
     }
 
-    private func challenge(_ lesson: Lesson, key: String, icon: String) -> some View {
+    private func challenge(_ lesson: Lesson, key: String, primary: Bool) -> some View {
         let done = completed[key] != nil
         return Button { sheet = .lesson(lesson, completionKey: key) } label: {
             HStack(spacing: 12) {
-                Image(systemName: done ? "checkmark" : icon).font(.headline).foregroundStyle(forest)
-                    .frame(width: 40, height: 40).background(mint, in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(lesson.title).font(.headline)
-                    Text(done ? "Completed · tap to review" : "Quick briefing · \(lesson.questions.count) questions")
-                        .font(.footnote).foregroundStyle(muted)
+                    Text(lesson.title).font(primary ? .title3.weight(.semibold) : .headline)
+                    Text(done ? "Completed · Review" : (primary ? "\(lesson.questions.count) questions" : "Bonus practice"))
+                        .font(.subheadline).foregroundStyle(muted)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(muted)
-            }.petCard()
+                Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(forest)
+            }
+            .padding(.vertical, 13).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
 
@@ -283,12 +286,14 @@ struct FinPetRoot: View {
         let perfectLessons = Set(month.filter { $0.score == $0.questions }.map(\.lessonID)).count
         let exercises = month.reduce(0) { $0 + $1.questions }
         return VStack(alignment: .leading, spacing: 12) {
-            Text(day.formatted(.dateTime.month(.wide)) + " learning quest").font(.headline)
+            Text(day.formatted(.dateTime.month(.wide))).font(.subheadline).foregroundStyle(muted)
             questRow("Finish 3 different lessons in one day", mostInOneDay, 3)
             questRow("Get a perfect score on 2 lessons", perfectLessons, 2)
             questRow("Complete 25 questions", exercises, 25)
-            ActionButton(title: "Go to lessons", secondary: true) { page = .learn }
-        }.petCard()
+            Button("Browse lessons") { page = .learn }
+                .font(.subheadline.weight(.semibold)).foregroundStyle(forest)
+                .padding(.vertical, 6)
+        }
     }
 
     private func questRow(_ title: String, _ value: Int, _ target: Int) -> some View {
@@ -307,80 +312,68 @@ struct FinPetRoot: View {
             HStack {
                 heading("Learn")
                 Label("\(streak)", systemImage: "flame.fill")
-                    .font(.subheadline.bold()).padding(8).background(honey, in: Capsule())
-                pet().frame(width: 55)
+                    .font(.subheadline.weight(.medium)).foregroundStyle(muted)
+                pet().frame(width: 55).clipped()
             }
-            ForEach(Array(LessonLibrary.units.enumerated()), id: \.offset) { index, unit in
-                unitPath(unit, number: index + 1)
+            ForEach(LessonLibrary.units, id: \.title) { unit in
+                unitPath(unit)
             }
         }
     }
 
-    private func unitPath(_ unit: LearningUnit, number: Int) -> some View {
+    private func unitPath(_ unit: LearningUnit) -> some View {
         let count = unit.lessons.filter { completed["library-" + $0.id] != nil }.count
         let next = unit.lessons.first { completed["library-" + $0.id] == nil }?.id
-        return VStack(alignment: .leading, spacing: 13) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("Unit \(number)").foregroundStyle(muted)
-                    Spacer()
-                    Text("\(count) of \(unit.lessons.count) done").foregroundStyle(forest)
-                }.font(.subheadline.bold())
-                Text(unit.title).font(.title2.weight(.heavy))
-                Meter(progress: Double(count) / Double(unit.lessons.count))
-            }.padding(17).background(mint, in: RoundedRectangle(cornerRadius: 24))
-            VStack(alignment: .leading, spacing: 13) {
+        return VStack(alignment: .leading, spacing: 11) {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(unit.title).font(.system(.title2, design: .serif, weight: .semibold))
+                    Spacer(minLength: 12)
+                    Text("\(count)/\(unit.lessons.count)")
+                        .font(.subheadline.monospacedDigit()).foregroundStyle(muted)
+                        .accessibilityLabel("\(count) of \(unit.lessons.count) lessons completed")
+                }
+                Meter(progress: Double(count) / Double(unit.lessons.count), background: mint)
+            }
+            .padding(.top, 12)
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(unit.lessons) { lesson in
                     let key = "library-" + lesson.id
                     let done = completed[key] != nil
                     let current = lesson.id == next
-                    HStack(spacing: 12) {
-                        pathNode(done: done, current: current)
-                        if current {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text("Up next").font(.footnote.bold()).foregroundStyle(forest)
-                                Text(lesson.title).font(.title3.weight(.heavy))
-                                Text("Quick briefing · \(lesson.questions.count) questions").font(.footnote).foregroundStyle(muted)
-                                ActionButton(title: "Start lesson") { sheet = .lesson(lesson, completionKey: key) }
+                    Button { sheet = .lesson(lesson, completionKey: key) } label: {
+                        HStack(spacing: 12) {
+                            pathNode(done: done, current: current)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(lesson.title).font(.subheadline.weight(current ? .semibold : .medium))
+                                if current {
+                                    Text("Up next · \(lesson.questions.count) questions")
+                                        .font(.caption).foregroundStyle(muted)
+                                }
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .petCard()
-                            .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(forest) }
-                        } else if done {
-                            Button { sheet = .lesson(lesson, completionKey: key) } label: {
-                                pathLabel(lesson.title, detail: "Done · tap to review")
-                            }.buttonStyle(.plain)
-                        } else {
-                            Button { sheet = .lesson(lesson, completionKey: key) } label: {
-                                pathLabel(lesson.title, detail: "Quick briefing · \(lesson.questions.count) questions")
-                            }.buttonStyle(.plain)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(muted)
                         }
+                        .frame(minHeight: 46)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(done ? "Review completed lesson" : "Open lesson")
                 }
             }.background(alignment: .leading) {
-                Rectangle().fill(mint).frame(width: 4).padding(.leading, 34).padding(.vertical, 28)
+                Rectangle().fill(line).frame(width: 1).padding(.leading, 13).padding(.vertical, 24)
             }
+            Divider()
         }
     }
 
-    private func pathLabel(_ title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.headline)
-            Text(detail).font(.footnote).foregroundStyle(muted)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private func pathNode(done: Bool, current: Bool) -> some View {
-        Image(systemName: done ? "checkmark" : (current ? "book.closed" : "book"))
-            .font(current ? .title2.bold() : .headline)
-            .foregroundStyle(current ? .white : (done ? forest : muted))
-            .frame(width: current ? 59 : 49, height: current ? 59 : 49)
+        Image(systemName: done ? "checkmark" : (current ? "book.closed" : "circle.fill"))
+            .font(.system(size: done || current ? 11 : 4, weight: .semibold))
+            .foregroundStyle(current ? .white : forest)
+            .frame(width: 27, height: 27)
             .background(current ? forest : (done ? mint : cream), in: Circle())
-            .overlay { Circle().strokeBorder(done || current ? ink : muted.opacity(0.5),
-                                             style: StrokeStyle(lineWidth: 2, dash: done || current ? [] : [4, 2])) }
-            .padding(current ? 4 : 0)
-            .overlay { if current { Circle().strokeBorder(PetColor.sunny.fill, lineWidth: 3) } }
-            .frame(width: 72)
+            .overlay { Circle().strokeBorder(current ? .clear : line) }
             .accessibilityHidden(true)
     }
 
