@@ -13,6 +13,17 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 Needs a billing-enabled Gemini key (image and video models are not on the free tier).
 
+## Accounts (Supabase)
+1. Create a Supabase project, open the SQL editor and run `schema.sql` (safe to re-run).
+2. In `.env` set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (secret, server-side only) and `JWT_SECRET`
+   (generate: `python -c "import secrets;print(secrets.token_urlsafe(48))"`).
+3. Passwords are stored as bcrypt hashes; login tokens are HS256 JWTs valid for 7 days (`JWT_EXPIRE_DAYS`).
+4. Tests (DB mocked, no network): `pytest test_auth.py`. Avatars are not stored in the database.
+
+- `POST /api/auth/register` and `POST /api/auth/login` - `{"username", "password"}` ->
+  `{"token", "expires_at", "user": {"id", "username"}}` (400 invalid, 401 bad login, 409 username taken, 503 not configured).
+- `GET /api/auth/me` - header `Authorization: Bearer <token>`. Protect other routes with `Depends(auth.get_current_user)`.
+
 ## API
 - `POST /api/avatar` - multipart field `photo` (jpg/png/webp, max 10 MB).
   Returns `{"avatar": <base64 transparent PNG, 9:16>, "background": "#RRGGBB"}`.

@@ -16,9 +16,10 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-import media
-
 load_dotenv(Path(__file__).parent / ".env")
+
+import auth  # noqa: E402  (after load_dotenv; reads env lazily anyway)
+import media  # noqa: E402
 
 log = logging.getLogger("finpet")
 
@@ -30,6 +31,10 @@ AVATAR_PROMPT = (
     "Create a full-body cartoon avatar of the subject in this photo. "
     "Show the entire body from head to toe, standing in a relaxed neutral front-facing pose, "
     "with both feet visible and nothing cropped. Portrait composition. "
+    "Pose rule: both arms hang straight down at the sides, slightly away from the body, "
+    "with open space around them; no hands on hips, no arms akimbo, no hands behind the head, "
+    "no crossed or bent arms, nothing that creates a hole or loop between an arm and the body "
+    "through which the background would show. "
     "Preserve the subject's recognizable features: face, hairstyle or fur, skin tone, "
     "colors and clothing or accessories (or a faithful cartoon version of the creature or object "
     "if it is not a person). "
@@ -43,6 +48,9 @@ ANIMATION_BASE = (
     "Animate this exact cartoon character, keeping its design, proportions and colors identical. "
     "Fixed static camera, no zoom, no cuts. The background must stay the exact same flat single "
     "color for the whole clip, with no ground, floor, shadow, particles or text. "
+    "Never pose or move so that an arm, hand or leg forms a closed loop or gap with the body "
+    "(no hands on hips, no arms akimbo, no hands on the head); keep arms and legs open to the outside "
+    "so any background visible between limbs and body connects to the outer background. "
     "The whole character stays fully in frame at all times, including hands and arms while they move: "
     "keep every limb well inside the frame edges with plenty of empty space on both sides. "
 )
@@ -57,6 +65,7 @@ ANIMATIONS = {
 }
 
 app = FastAPI(title="FinPet backend")
+app.include_router(auth.router)
 
 
 def _env(name: str, default: str) -> str:

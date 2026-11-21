@@ -123,7 +123,19 @@ struct Pet: View {
 
 @main
 struct FinPetApp: App {
+    @StateObject private var auth = AuthSession()
+
     var body: some Scene {
-        WindowGroup { FinPetRoot().preferredColorScheme(.light) }
+        WindowGroup {
+            Group {
+                switch auth.state {
+                case .checking: cream.ignoresSafeArea()
+                case .signedOut: LoginView()
+                case .signedIn: FinPetRoot()
+                }
+            }
+            .environmentObject(auth)
+            .preferredColorScheme(.light)
+        }
     }
 }
