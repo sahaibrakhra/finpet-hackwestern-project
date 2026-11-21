@@ -24,12 +24,12 @@ struct Question {
 enum LessonLibrary {
     static let daily = units.flatMap(\.lessons)
     static let units = [
-        LearningUnit(title: "TFSAs", lessons: [tfsa, tfsaRoom]),
-        LearningUnit(title: "RRSPs", lessons: [rrsp, rrspWithdrawals]),
-        LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals]),
-        LearningUnit(title: "Credit and borrowing", lessons: [credit, loans]),
-        LearningUnit(title: "Investing basics", lessons: [investments, fundFees]),
-        LearningUnit(title: "Long-term planning", lessons: [compounding, retirement])
+        LearningUnit(title: "TFSAs", lessons: [tfsa, tfsaRoom, tfsaTiming]),
+        LearningUnit(title: "RRSPs", lessons: [rrsp, rrspWithdrawals, rrspCompare]),
+        LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals, fhsaPlan]),
+        LearningUnit(title: "Credit and borrowing", lessons: [credit, cardPayment, loans]),
+        LearningUnit(title: "Investing basics", lessons: [investments, fundFees, portfolio]),
+        LearningUnit(title: "Long-term planning", lessons: [compounding, retirement, retirementGap])
     ]
 
     static let tfsa = Lesson(id: "tfsa", title: "TFSA basics", briefing: [

@@ -23,17 +23,17 @@ extension Lesson {
         switch id {
         case "tfsa":
             path = "revenue-agency/services/tax/individuals/topics/tax-free-savings-account/what.html"
-        case "tfsa-room":
+        case "tfsa-room", "tfsa-timing":
             path = "revenue-agency/services/tax/individuals/topics/tax-free-savings-account/contributing/calculate-room.html"
         case "rrsp":
             path = "revenue-agency/services/tax/individuals/topics/rrsps-related-plans/registered-retirement-savings-plan-rrsp.html"
-        case "rrsp-withdrawals":
+        case "rrsp-withdrawals", "rrsp-compare":
             path = "revenue-agency/services/tax/individuals/topics/rrsps-related-plans/making-withdrawals.html"
         case "fhsa":
             path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/tax-deductions-fhsa-contributions.html"
-        case "fhsa-withdrawals":
+        case "fhsa-withdrawals", "fhsa-plan":
             path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/withdrawals-transfers-out-your-fhsas.html"
-        case "investments", "fund-fees":
+        case "investments", "fund-fees", "portfolio":
             path = "financial-consumer-agency/services/savings-investments/investing-basics.html"
         default:
             path = "financial-consumer-agency/services/financial-basics.html"
@@ -42,7 +42,8 @@ extension Lesson {
     }
 
     var example: LessonExample {
-        switch id {
+        if let applied = LessonLibrary.appliedExamples[id] { return applied }
+        return switch id {
         case "tfsa":
             LessonExample("Example TFSA account", [("Starting value", "$1,000"), ("Current value", "$1,200"),
                 ("Growth inside the account", "$200"), ("Canadian tax on growth", "Generally $0")],
