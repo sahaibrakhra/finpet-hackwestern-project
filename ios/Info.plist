@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Where the FinPet backend runs. Simulator: localhost works. Real iPhone: use your computer's LAN IP. -->
+	<key>FinPetBackendURL</key>
+	<string>http://localhost:8000</string>
+	<!-- Allow plain-HTTP calls to localhost / local-network IPs during development. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>FinPet connects to your development server to create your avatar.</string>
+</dict>
+</plist>
