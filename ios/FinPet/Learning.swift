@@ -189,15 +189,6 @@ struct Quiz: View {
                 DisclosureGroup("See the numbers as a chart") { exampleChart(chart).padding(.top, 8) }
                     .font(.subheadline).tint(forest)
             }
-            DisclosureGroup("Sources and beginner courses") {
-                VStack(alignment: .leading, spacing: 11) {
-                    if let source = lesson.source {
-                        Link("Canadian rules and guidance", destination: source)
-                    }
-                    Link("McGill Personal Finance Essentials", destination: URL(string: "https://mcgillpersonalfinance.com/")!)
-                    Link("Khan Academy Financial Literacy", destination: URL(string: "https://www.khanacademy.org/college-careers-more/financial-literacy")!)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-            }.font(.subheadline).tint(forest)
         }
     }
 
