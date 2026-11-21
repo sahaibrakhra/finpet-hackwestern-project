@@ -14,7 +14,7 @@ private enum Page: String, CaseIterable {
 }
 
 private enum Sheet: String, Identifiable {
-    case setup, lesson, purchases
+    case lesson, purchases
     var id: String { rawValue }
 }
 
@@ -42,25 +42,26 @@ struct FinPetRoot: View {
     private var finishedLesson: Bool { tasks & 2 != 0 }
 
     var body: some View {
-        ScrollView {
-            Group {
-                switch page {
-                case .home: home
-                case .learn: learn
-                case .money: money
-                case .friends: friends
+        GeometryReader { viewport in
+            ScrollView {
+                Group {
+                    switch page {
+                    case .home: home(mascotHeight: viewport.size.height * 0.38)
+                    case .learn: learn
+                    case .money: money
+                    case .friends: friends
+                    }
                 }
+                .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 22)
             }
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 22)
+            .defaultScrollAnchor(.top)
+            .id(page)
         }
-        .defaultScrollAnchor(.top)
-        .id(page)
         .foregroundStyle(ink)
         .background(cream.ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) { tabs }
         .fullScreenCover(item: $sheet) { item in
             switch item {
-            case .setup: setup
             case .lesson:
                 Quiz(pet: pet(), completed: {
                     tasks |= 2
@@ -128,21 +129,19 @@ struct FinPetRoot: View {
         Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo, shield: shield)
     }
 
-    private var home: some View {
+    private func home(mascotHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             heading(petName, streak: true)
-            HStack(spacing: 10) {
+            MascotStage().frame(height: mascotHeight)
+            HStack(alignment: .center, spacing: 16) {
+                Text("$58").font(.system(size: 37, weight: .heavy))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("$58").font(.system(size: 45, weight: .heavy))
                     Text("left this week").font(.headline)
                     Text("of $196 · 2 days to go").font(.subheadline).foregroundStyle(muted)
-                    Meter(progress: 58 / 196).padding(.top, 7)
-                    Button("Customize \(petName)") { sheet = .setup }
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(forest).padding(.top, 12)
+                    Meter(progress: 58 / 196, background: mint).padding(.top, 4)
                 }
-                pet().frame(maxWidth: 120)
             }
-            .padding(19).background(mint, in: RoundedRectangle(cornerRadius: 25))
+            .petCard()
             if reviews < 2 {
                 ActionButton(title: "Review \(2 - reviews) \(reviews == 1 ? "purchase" : "purchases")") { sheet = .purchases }
             }
@@ -373,11 +372,6 @@ struct FinPetRoot: View {
             }
             ActionButton(title: "＋  Start a shared streak", secondary: true) { invite = true }
         }
-    }
-
-    private var setup: some View {
-        MascotEditor(name: $name, color: $color, accessory: $accessory, personality: $personality,
-                     photo: $photo, close: { sheet = nil })
     }
 
     private var purchases: some View {
