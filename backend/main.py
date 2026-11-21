@@ -70,12 +70,14 @@ def _video_model() -> str:
     return _env("VIDEO_MODEL", "gemini-omni-1.2-flash")
 
 
-def _client():
+def _client(*, api_version: str | None = None):
     from google import genai
 
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
         raise HTTPException(503, "Server is missing GEMINI_API_KEY. Set it in backend/.env.")
+    if api_version is not None:
+        return genai.Client(api_key=key, http_options={"api_version": api_version})
     return genai.Client(api_key=key)
 
 
@@ -154,7 +156,8 @@ def _video_bytes(video) -> bytes:
 
 def _generate_video(still_png: bytes, motion_prompt: str) -> bytes:
     """Image-to-video with the cheapest settings: short duration, 360p, portrait."""
-    client = _client()
+    # Omni video is served by the v1beta Interactions API.
+    client = _client(api_version="v1beta")
     duration = int(_env("ANIM_SECONDS", "3"))
     try:
         interaction = client.interactions.create(
