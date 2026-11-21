@@ -18,6 +18,11 @@ BOTTOM_MARGIN = 0.05
 AVATAR_MAX_W = 0.82
 VIDEO_AVATAR_MAX_W = 0.5  # a wide frame: the avatar stays centered with lots of room for arms
 KEY_LO, KEY_HI = 18.0, 42.0  # RGB distance: fully background below LO, fully subject above HI
+# Enclosed pockets of background (e.g. the gap between an arm on the hip and the torso) are also removed,
+# but only if they are big enough and almost exactly the background color, so a similar-looking color
+# on the character (white clothes on a pastel background) is never mistaken for a gap.
+MIN_GAP_FRACTION = 0.0005  # of the image area
+GAP_STRICT_SHARE = 0.5  # share of the pocket's pixels that must be within KEY_LO of the background
 
 
 def sample_background(img: Image.Image) -> tuple[int, int, int]:
@@ -42,14 +47,22 @@ def from_hex(value: str) -> tuple[int, int, int]:
 
 
 def key_out_background(img: Image.Image, bg: tuple[int, int, int]) -> Image.Image:
-    """Make the background transparent. Only background-colored pixels connected to the image border
-    are removed, so similar colors inside the character (e.g. white clothes on white) are kept."""
+    """Make the background transparent: everything background-colored that touches the image border, plus
+    enclosed pockets that are clearly background (see MIN_GAP_FRACTION). Similar-but-different colors
+    inside the character are kept."""
     rgb = np.asarray(img.convert("RGB")).astype(np.float32)
     dist = np.sqrt(((rgb - np.array(bg, dtype=np.float32)) ** 2).sum(axis=2))
     bgish = dist < KEY_HI
-    labels, _ = ndimage.label(bgish)
+    labels, count = ndimage.label(bgish)
+    flat = labels.ravel()
+    areas = np.bincount(flat, minlength=count + 1).astype(np.float64)
+    strict = np.bincount(flat, weights=(dist < KEY_LO).ravel().astype(np.float64), minlength=count + 1)
+    gaps = (areas >= MIN_GAP_FRACTION * dist.size) & (strict >= GAP_STRICT_SHARE * np.maximum(areas, 1))
+    gaps[0] = False  # label 0 is "not background-ish"
     border = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
-    region = np.isin(labels, border[border > 0])
+    remove = gaps.copy()
+    remove[border[border > 0]] = True
+    region = remove[labels]
     alpha = np.ones(dist.shape, dtype=np.float32)
     soft = np.clip((dist - KEY_LO) / (KEY_HI - KEY_LO), 0.0, 1.0)
     alpha[region] = soft[region]
