@@ -15,11 +15,13 @@ private enum Page: String, CaseIterable {
 private enum Sheet: Identifiable {
     case setup
     case lesson(Lesson, completionKey: String)
+    case review(Lesson, ReviewSchedule)
 
     var id: String {
         switch self {
         case .setup: "setup"
         case .lesson(_, let key): key
+        case .review(let lesson, _): "review-" + lesson.id
         }
     }
 }
@@ -31,6 +33,7 @@ struct FinPetRoot: View {
     @AppStorage("finpet.ref.photo") private var photo = Data()
     @AppStorage("finpet.education.history") private var history = Data()
     @AppStorage("finpet.education.attempts") private var attemptData = Data()
+    @AppStorage("finpet.education.reviews") private var reviewData = Data()
     @AppStorage("finpet.ref.checkins") private var checkins = ""
     @AppStorage("finpet.ref.friends") private var extraFriends = ""
     @Environment(\.scenePhase) private var scenePhase
@@ -50,6 +53,33 @@ struct FinPetRoot: View {
     private var calendar: Calendar { .current }
     private var attempts: [String: Attempt] {
         (try? JSONDecoder().decode([String: Attempt].self, from: attemptData)) ?? [:]
+    }
+
+    private var reviews: [String: ReviewSchedule] {
+        var records = (try? JSONDecoder().decode([String: ReviewSchedule].self, from: reviewData)) ?? [:]
+        let history = completed
+        for lesson in LessonLibrary.daily where records[lesson.id] == nil {
+            if let date = history["library-" + lesson.id] {
+                records[lesson.id] = .first(after: date, missed: [], calendar: calendar)
+            }
+        }
+        return records
+    }
+
+    private var reviewQueue: [(lesson: Lesson, schedule: ReviewSchedule)] {
+        let records = reviews
+        return LessonLibrary.daily.compactMap { lesson in
+            records[lesson.id].map { (lesson, $0) }
+        }.sorted {
+            if $0.schedule.due == $1.schedule.due { return $0.lesson.title < $1.lesson.title }
+            return $0.schedule.due < $1.schedule.due
+        }
+    }
+
+    private func saveReview(_ id: String, schedule: ReviewSchedule) {
+        var records = reviews
+        records[id] = schedule
+        if let data = try? JSONEncoder().encode(records) { reviewData = data }
     }
 
     private struct Attempt: Codable {
@@ -96,7 +126,16 @@ struct FinPetRoot: View {
                 MascotEditor(name: $name, color: $color, personality: $personality,
                              photo: $photo, close: { sheet = nil })
             case .lesson(let lesson, let key):
-                Quiz(pet: pet(), lesson: lesson, completed: { score in
+                Quiz(pet: pet(), lesson: lesson, completed: { score, missed in
+                    if var schedule = reviews[lesson.id] {
+                        if !missed.isEmpty {
+                            schedule.missed = missed
+                            schedule.due = min(schedule.due, ReviewSchedule.first(after: .now, missed: missed, calendar: calendar).due)
+                            saveReview(lesson.id, schedule: schedule)
+                        }
+                    } else {
+                        saveReview(lesson.id, schedule: .first(after: .now, missed: missed, calendar: calendar))
+                    }
                     var updated = completed
                     updated[key] = .now
                     updated["library-" + lesson.id] = .now
@@ -111,6 +150,16 @@ struct FinPetRoot: View {
                     if let data = try? JSONEncoder().encode(updated) { history = data }
                     day = .now
                 }, close: { sheet = nil })
+            case .review(let lesson, let schedule):
+                let order = schedule.questions(total: lesson.questions.count)
+                Quiz(pet: pet(), lesson: lesson, completed: { _, missed in
+                    let pending = schedule.missed.filter { !order.contains($0) } + missed
+                    saveReview(lesson.id, schedule: schedule.next(after: .now, missed: pending, calendar: calendar))
+                    var updated = completed
+                    updated["practice-" + dateKey(.now)] = .now
+                    if let data = try? JSONEncoder().encode(updated) { history = data }
+                    day = .now
+                }, reviewQuestions: order, close: { sheet = nil })
             }
         }
         .alert("Start a shared streak", isPresented: $invite) {
@@ -228,11 +277,38 @@ struct FinPetRoot: View {
                 }
             }
             Divider()
+            reviewSection
+            Divider()
             streakBoard
             Divider()
             VStack(alignment: .leading, spacing: 11) {
                 Text("Challenge of the month").font(.title2.weight(.semibold))
                 monthlyQuest
+            }
+        }
+    }
+
+    private var reviewSection: some View {
+        let queue = reviewQueue
+        let due = queue.filter { $0.schedule.due <= day }
+        return VStack(alignment: .leading, spacing: 7) {
+            Text("Quick review").font(.title3.weight(.semibold))
+            if let next = due.first {
+                Button { sheet = .review(next.lesson, next.schedule) } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(next.lesson.title).font(.headline)
+                            Text("\(due.count) due · 3 questions per review").font(.subheadline).foregroundStyle(muted)
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.clockwise").foregroundStyle(forest)
+                    }.padding(.vertical, 7).contentShape(Rectangle())
+                }.buttonStyle(.plain)
+            } else if let next = queue.first {
+                Text("Next review \(next.schedule.due.formatted(.dateTime.month(.abbreviated).day())).")
+                    .font(.subheadline).foregroundStyle(muted)
+            } else {
+                Text("Finish a lesson to get your first review tomorrow.").font(.subheadline).foregroundStyle(muted)
             }
         }
     }
@@ -315,6 +391,8 @@ struct FinPetRoot: View {
                     .font(.subheadline.weight(.medium)).foregroundStyle(muted)
                 pet().frame(width: 55).clipped()
             }
+            reviewSection
+            Divider()
             ForEach(LessonLibrary.units, id: \.title) { unit in
                 unitPath(unit)
             }

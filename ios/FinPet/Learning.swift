@@ -96,17 +96,22 @@ enum LessonLibrary {
 struct Quiz: View {
     let pet: Pet
     let lesson: Lesson
-    let completed: (Int) -> Void
+    let completed: (Int, [Int]) -> Void
+    var reviewQuestions: [Int] = []
     let close: () -> Void
-    @State private var briefing = true
+    @State private var showingBriefing: Bool?
     @State private var started = false
+    @State private var missed: [Int] = []
     @State private var index = 0
     @State private var selected: Int?
     @State private var checked = false
     @State private var score = 0
     @State private var finished = false
 
-    private var question: Question { lesson.questions[index] }
+    private var isReview: Bool { !reviewQuestions.isEmpty }
+    private var briefing: Bool { showingBriefing ?? !isReview }
+    private var questionOrder: [Int] { isReview ? reviewQuestions : Array(lesson.questions.indices) }
+    private var question: Question { lesson.questions[questionOrder[index]] }
 
     var body: some View {
         ScrollView {
@@ -115,26 +120,26 @@ struct Quiz: View {
                     Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
                         .accessibilityLabel("Close lesson")
                     if !briefing && !finished {
-                        Meter(progress: Double(index + 1) / Double(lesson.questions.count), background: line)
-                        Text("\(index + 1)/\(lesson.questions.count)").font(.subheadline.bold())
+                        Meter(progress: Double(index + 1) / Double(questionOrder.count), background: line)
+                        Text("\(index + 1)/\(questionOrder.count)").font(.subheadline.bold())
                     } else {
                         Spacer()
                     }
                     pet.frame(width: 49)
                 }.foregroundStyle(muted)
-                if started && !finished { lessonTabs }
+                if (started || isReview) && !finished { lessonTabs }
                 if briefing {
                     briefingContent
                 } else if finished {
-                    Text("Challenge complete").font(.largeTitle.bold())
+                    Text(isReview ? "Review complete" : "Challenge complete").font(.largeTitle.bold())
                     pet.frame(width: 120)
-                    Text("\(score) of \(lesson.questions.count) correct").font(.headline)
+                    Text("\(score) of \(questionOrder.count) correct").font(.headline)
                 } else {
                     questionContent
                 }
             }.padding(20)
         }
-        .id(briefing ? -1 : (finished ? lesson.questions.count : index))
+        .id(briefing ? -1 : (finished ? questionOrder.count : index))
         .foregroundStyle(ink).background(cream.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             ActionButton(title: buttonTitle, secondary: !briefing && selected == nil && !finished, action: advance)
@@ -145,8 +150,8 @@ struct Quiz: View {
 
     private var lessonTabs: some View {
         HStack(spacing: 6) {
-            lessonTab("Briefing", isSelected: briefing) { briefing = true }
-            lessonTab("Questions", isSelected: !briefing) { briefing = false }
+            lessonTab("Briefing", isSelected: briefing) { showingBriefing = true }
+            lessonTab("Questions", isSelected: !briefing) { showingBriefing = false }
         }.padding(4).background(mint, in: RoundedRectangle(cornerRadius: 14))
     }
 
@@ -163,26 +168,27 @@ struct Quiz: View {
         VStack(alignment: .leading, spacing: 17) {
             Text("Briefing").font(.subheadline.bold()).foregroundStyle(forest)
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
-            Text(lesson.beginnerGuide.situation).font(.body)
-            if !lesson.relevantWords.isEmpty {
+            Text(lesson.quickTake).font(.title3.weight(.medium))
+            exampleCard
+            DisclosureGroup("Explanation and key terms") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Words you’ll see").font(.headline)
-                    ForEach(lesson.relevantWords) { word in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(word.id).font(.subheadline.bold())
-                            Text(word.meaning).font(.subheadline).foregroundStyle(muted)
+                    Text(lesson.beginnerGuide.situation)
+                    ForEach(lesson.plainLanguageSteps, id: \.self) { Text($0) }
+                    if !lesson.relevantWords.isEmpty {
+                        Divider()
+                        ForEach(lesson.relevantWords) { word in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(word.id).font(.subheadline.bold())
+                                Text(word.meaning).font(.subheadline).foregroundStyle(muted)
+                            }
                         }
                     }
-                }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+            }.font(.subheadline).tint(forest)
+            if let chart = lesson.chart {
+                DisclosureGroup("See the numbers as a chart") { exampleChart(chart).padding(.top, 8) }
+                    .font(.subheadline).tint(forest)
             }
-            VStack(alignment: .leading, spacing: 12) {
-                Text("How it works").font(.title3.weight(.semibold))
-                ForEach(lesson.plainLanguageSteps, id: \.self) { step in
-                    Text(step).font(.body)
-                }
-            }
-            exampleCard
-            if let chart = lesson.chart { exampleChart(chart) }
             DisclosureGroup("Sources and beginner courses") {
                 VStack(alignment: .leading, spacing: 11) {
                     if let source = lesson.source {
@@ -276,22 +282,23 @@ struct Quiz: View {
     }
 
     private var buttonTitle: String {
-        if briefing { return started ? "Back to questions" : "Start questions" }
+        if briefing { return started || isReview ? "Back to questions" : "Start questions" }
         if finished { return "Done" }
         if !checked { return "Check" }
-        return index == lesson.questions.count - 1 ? "See result" : "Continue"
+        return index == questionOrder.count - 1 ? "See result" : "Continue"
     }
 
     private func advance() {
-        if briefing { started = true; briefing = false; return }
+        if briefing { started = true; showingBriefing = false; return }
         if finished { close(); return }
         guard let selected else { return }
         if !checked {
             checked = true
             if selected == question.correct { score += 1 }
-        } else if index == lesson.questions.count - 1 {
+            else { missed.append(questionOrder[index]) }
+        } else if index == questionOrder.count - 1 {
             finished = true
-            completed(score)
+            completed(score, missed)
         } else {
             index += 1
             self.selected = nil

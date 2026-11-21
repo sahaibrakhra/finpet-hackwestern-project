@@ -91,6 +91,25 @@ extension Lesson {
         }
     }
 
+    var quickTake: String {
+        if let intro = Self.tfsaQuickTakes[id] { return intro }
+        if let workshop = PracticeWorkshop.byID[id] { return workshop.rule }
+        return briefing.first ?? beginnerGuide.situation
+    }
+
+    private static let tfsaQuickTakes = [
+        "tfsa": "A Tax-Free Savings Account (TFSA) is a place to save or invest. If the money grows while it’s inside, the growth is generally free of Canadian tax.",
+        "tfsa-room": "Contribution room is the amount you can still put in. If you have accounts at two banks, both use the same room.",
+        "tfsa-timing": "Taking money out gives you cash today. The room to put that money back generally returns next January.",
+        "tfsa-payday": "A payday transfer uses room just like a manual deposit. Compare what you’ve put in, plus the next transfer, with the room you started with.",
+        "tfsa-records": "Add up the deposits from every bank. Each bank’s statement shows only what happened there.",
+        "tfsa-unused": "Unused room generally rolls into the next year. Think of it as space for future deposits that you haven’t used yet.",
+        "tfsa-transfer": "Switching banks? An eligible direct transfer lets the banks move the money without using new contribution room.",
+        "tfsa-loss": "A drop in price doesn’t give you more room. If you take out money, the actual withdrawal is what generally adds room back next year.",
+        "tfsa-next-year": "Two things can carry into January: room left unused and money you took out last year. Check both before you put more money in.",
+        "tfsa-product": "If tuition is due soon, check how much you can actually take out by the deadline. Some investments may have changed in price or be locked in."
+    ]
+
     var plainLanguageSteps: [String] {
         Self.tfsaSteps[id] ?? briefing
     }
