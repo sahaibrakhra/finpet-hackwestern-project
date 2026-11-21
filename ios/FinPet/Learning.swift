@@ -24,8 +24,8 @@ struct Question {
 enum LessonLibrary {
     static let daily = units.flatMap(\.lessons)
     static let units = [
-        LearningUnit(title: "TFSAs", lessons: [tfsa, tfsaRoom, tfsaTiming] + PracticeWorkshop.tfsa.map(\.lesson)),
-        LearningUnit(title: "RRSPs", lessons: [rrsp, rrspWithdrawals, rrspCompare] + PracticeWorkshop.rrsp.map(\.lesson)),
+        LearningUnit(title: "Tax-Free Savings Accounts", lessons: [tfsa, tfsaRoom, tfsaTiming] + PracticeWorkshop.tfsa.map(\.lesson)),
+        LearningUnit(title: "Registered Retirement Savings Plans", lessons: [rrsp, rrspWithdrawals, rrspCompare] + PracticeWorkshop.rrsp.map(\.lesson)),
         LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals, fhsaPlan] + PracticeWorkshop.fhsa.map(\.lesson)),
         LearningUnit(title: "Credit and borrowing", lessons: [credit, cardPayment, loans] + PracticeWorkshop.credit.map(\.lesson)),
         LearningUnit(title: "Investing basics", lessons: [investments, fundFees, portfolio] + PracticeWorkshop.investing.map(\.lesson)),
@@ -160,18 +160,38 @@ struct Quiz: View {
     }
 
     private var briefingContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Quick briefing").font(.subheadline.bold()).foregroundStyle(forest)
-            Text(lesson.title).font(.largeTitle.bold())
-            VStack(alignment: .leading, spacing: 15) {
-                ForEach(lesson.briefing, id: \.self) { Text($0) }
-            }.frame(maxWidth: .infinity, alignment: .leading).petCard()
+        VStack(alignment: .leading, spacing: 17) {
+            Text("Briefing").font(.subheadline.bold()).foregroundStyle(forest)
+            Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
+            Text(lesson.beginnerGuide.situation).font(.body)
+            if !lesson.relevantWords.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Words you’ll see").font(.headline)
+                    ForEach(lesson.relevantWords) { word in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(word.id).font(.subheadline.bold())
+                            Text(word.meaning).font(.subheadline).foregroundStyle(muted)
+                        }
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                Text("How it works").font(.title3.weight(.semibold))
+                ForEach(lesson.plainLanguageSteps, id: \.self) { step in
+                    Text(step).font(.body)
+                }
+            }
             exampleCard
             if let chart = lesson.chart { exampleChart(chart) }
-            if let source = lesson.source {
-                Link("Read the source", destination: source).font(.footnote.bold()).foregroundStyle(forest)
-            }
-            Text("\(lesson.questions.count) questions follow this briefing.").font(.footnote).foregroundStyle(muted)
+            DisclosureGroup("Sources and beginner courses") {
+                VStack(alignment: .leading, spacing: 11) {
+                    if let source = lesson.source {
+                        Link("Canadian rules and guidance", destination: source)
+                    }
+                    Link("McGill Personal Finance Essentials", destination: URL(string: "https://mcgillpersonalfinance.com/")!)
+                    Link("Khan Academy Financial Literacy", destination: URL(string: "https://www.khanacademy.org/college-careers-more/financial-literacy")!)
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+            }.font(.subheadline).tint(forest)
         }
     }
 

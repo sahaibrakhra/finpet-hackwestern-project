@@ -76,8 +76,7 @@ struct PracticeWorkshop {
 
     var lesson: Lesson {
         Lesson(id: id, title: title, briefing: [
-            context, rule, "Work through the example in order. The last row shows the result from the first two rows.",
-            reason
+            context, rule, reason
         ], questions: [
             calculationQuestion("Using the example, calculate the amount for “\(result.lowercased()).”",
                                 value: second.1, position: 1),
