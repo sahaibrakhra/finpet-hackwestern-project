@@ -67,8 +67,9 @@ class Layout:
                 break
         if run >= max(3, int(0.08 * nb)):
             y_c = self.ymin + run / nb * H
-        self.has_legs = y_c is not None
-        self.y_c = y_c if y_c is not None else self.ymin + 0.45 * H
+        self.legs_confident = y_c is not None   # a real gap between the legs was seen
+        self.has_legs = True                    # otherwise assume legs below ~42% height, split down the middle
+        self.y_c = y_c if y_c is not None else self.ymin + 0.42 * H
         U = self.ymax - self.y_c  # height of the upper body (torso + head)
         self.U = U
 
@@ -114,6 +115,38 @@ class Layout:
             m = cand & ((v[:, 0] - self.cx) * sign > 0)
             self.arm_mask[side] = m
             self.arm_pts[side] = v[m] if m.sum() >= max(40, int(0.002 * len(v))) else None
+
+        # T-pose / arms held out: the arms are so wide that they define the per-slice width, so measure
+        # them against the waist instead.
+        w0 = bin_of(self.y_c + 0.10 * self.Ut)
+        w1 = max(bin_of(self.y_c + 0.45 * self.Ut), w0 + 1)
+        waist_hw = float(np.median(self.hw[w0:w1])) if w1 > w0 else self.torso_hw
+        band_ext = float(ax[band].max()) if band.any() else 0.0
+        if waist_hw > 0.02 * H and band_ext > 1.8 * waist_hw:
+            band_t = (v[:, 1] > self.y_c + 0.30 * self.Ut) & \
+                     (v[:, 1] < self.y_neck + 0.10 * (self.ymax - self.y_neck))
+            for side, sign in (("Left", 1), ("Right", -1)):
+                m = band_t & (ax > waist_hw * 1.15) & ((v[:, 0] - self.cx) * sign > 0)
+                if m.sum() >= max(40, int(0.005 * len(v))):
+                    self.arm_mask[side] = m
+                    self.arm_pts[side] = v[m]
+
+        # Arms pressed against the body do not protrude, so look for a torso that is much wider than the legs:
+        # the extra width at the sides is the arms.
+        self.arms_inferred = False
+        if self.arm_pts["Left"] is None and self.arm_pts["Right"] is None:
+            leg_b0, leg_b1 = bin_of(self.ymin + 0.10 * (self.y_c - self.ymin)), bin_of(self.y_c - 0.05 * H)
+            leg_seg = self.hw[leg_b0:max(leg_b1, leg_b0 + 1)]
+            leg_hw = float(np.median(leg_seg)) if len(leg_seg) else 0.0
+            if leg_hw > 0.02 * H and self.torso_hw > 1.35 * leg_hw:
+                cut = leg_hw * 1.08
+                band2 = (v[:, 1] > self.y_c + 0.1 * self.Ut) & (v[:, 1] < self.y_neck)
+                for side, sign in (("Left", 1), ("Right", -1)):
+                    m = band2 & (ax > cut) & ((v[:, 0] - self.cx) * sign > 0)
+                    if m.sum() >= max(40, int(0.01 * len(v))):
+                        self.arm_mask[side] = m
+                        self.arm_pts[side] = v[m]
+                        self.arms_inferred = True
 
         # --- leg centre lines (x of each leg at a few heights), for the hip / knee / ankle joints
         self.leg_x = {}
@@ -280,6 +313,102 @@ def _axis_quat(axis, angle):
     return np.array([ax[0] * s, ax[1] * s, ax[2] * s, math.cos(angle / 2)])
 
 
+
+def _read_accessor(gltf, blob, i):
+    acc = gltf.accessors[i]
+    bv = gltf.bufferViews[acc.bufferView]
+    ncomp = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}[acc.type]
+    dt = {5126: np.float32, 5123: np.uint16, 5125: np.uint32, 5121: np.uint8}[acc.componentType]
+    isz = np.dtype(dt).itemsize * ncomp
+    stride = bv.byteStride or isz
+    start = (bv.byteOffset or 0) + (acc.byteOffset or 0)
+    raw = np.frombuffer(bytes(blob[start:start + stride * acc.count]), dtype=np.uint8).reshape(acc.count, stride)
+    return raw[:, :isz].copy().view(dt).reshape(acc.count, ncomp)
+
+
+def _quat_to_mat(q) -> np.ndarray:
+    x, y, z, w = q
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+
+
+def _scale_quat(q: np.ndarray, gain: float) -> np.ndarray:
+    """Scale the rotation angle of unit quaternions (N,4) by ``gain`` (0 = rest pose)."""
+    w = np.clip(q[:, 3], -1.0, 1.0)
+    ang = 2 * np.arccos(w)
+    sn = np.sqrt(np.maximum(1 - w * w, 1e-12))
+    axis = q[:, :3] / sn[:, None]
+    na = ang * gain
+    out = np.concatenate([axis * np.sin(na / 2)[:, None], np.cos(na / 2)[:, None]], axis=1)
+    out[ang < 1e-9] = [0, 0, 0, 1]
+    return out
+
+
+class _Stretch:
+    """CPU linear-blend skinning used to measure how much a clip would stretch / tear the mesh."""
+
+    def __init__(self, joints, prims, H, max_edges=40000, seed=0):
+        self.joints = joints
+        self.rest = np.array([j[2] for j in joints])
+        self.parent = [j[1] for j in joints]
+        self.local = np.array([j[2] - (joints[j[1]][2] if j[1] >= 0 else 0) for j in joints])
+        self.H = H
+        rng = np.random.default_rng(seed)
+        self.prims = []
+        for pos, ji, ww, idx in prims:
+            tri = idx[: len(idx) // 3 * 3].reshape(-1, 3)
+            e = np.concatenate([tri[:, [0, 1]], tri[:, [1, 2]], tri[:, [2, 0]]])
+            if len(e) > max_edges:
+                e = e[rng.choice(len(e), max_edges, replace=False)]
+            l0 = np.linalg.norm(pos[e[:, 0]] - pos[e[:, 1]], axis=1)
+            self.prims.append((pos, ji.astype(int), ww.astype(np.float64), e, l0))
+
+    def _pose(self, rots: dict, trans: dict):
+        n = len(self.joints)
+        R = np.zeros((n, 3, 3))
+        T = np.zeros((n, 3))
+        for i in range(n):
+            Rl = _quat_to_mat(rots.get(i, (0, 0, 0, 1.0)))
+            loc_t = trans.get(i, self.local[i])
+            par = self.parent[i]
+            if par < 0:
+                R[i], T[i] = Rl, loc_t
+            else:
+                R[i] = R[par] @ Rl
+                T[i] = T[par] + R[par] @ loc_t
+        return R, T
+
+    def measure(self, rots: dict, trans: dict) -> float:
+        """Worst-case edge length change, as a fraction of body height (99.7th percentile)."""
+        R, T = self._pose(rots, trans)
+        worst = 0.0
+        for pos, ji, ww, e, l0 in self.prims:
+            out = np.zeros_like(pos)
+            for k in range(4):
+                idx = ji[:, k]
+                out += ww[:, k:k + 1] * (np.einsum("nij,nj->ni", R[idx], pos - self.rest[idx]) + T[idx])
+            l1 = np.linalg.norm(out[e[:, 0]] - out[e[:, 1]], axis=1)
+            worst = max(worst, float(np.percentile(np.abs(l1 - l0), 99.7)) / self.H)
+        return worst
+
+
+def _upright(geoms) -> bool:
+    """Rotate Z-up (or X-up) exports to Y-up. Returns True if a rotation was applied."""
+    import trimesh
+    allv = np.concatenate([np.asarray(g.vertices) for g in geoms])
+    ext = allv.max(0) - allv.min(0)
+    if ext[2] > 1.3 * ext[1] and ext[2] >= ext[0]:      # tallest along Z -> Z-up
+        m = trimesh.transformations.rotation_matrix(-math.pi / 2, [1, 0, 0])
+    elif ext[0] > 1.3 * ext[1] and ext[0] > ext[2]:      # tallest along X
+        m = trimesh.transformations.rotation_matrix(math.pi / 2, [0, 0, 1])
+    else:
+        return False
+    for g in geoms:
+        g.apply_transform(m)
+    return True
+
+
 def rig_glb(src: Path, dst: Path) -> dict:
     """Rig ``src`` (GLB) into ``dst``. Returns a small info dict. Raises RigError."""
     import pygltflib as pg
@@ -295,6 +424,7 @@ def rig_glb(src: Path, dst: Path) -> dict:
     geoms = [g for g in scene.dump(concatenate=False) if hasattr(g, "vertices") and len(g.vertices)]
     if not geoms:
         raise RigError("model has no meshes")
+    reoriented = _upright(geoms)
     flat = trimesh.Scene(geoms)  # world-space geometry, identity node transforms, textures kept
     gltf = pg.GLTF2().load_from_bytes(flat.export(file_type="glb"))
 
@@ -337,6 +467,7 @@ def rig_glb(src: Path, dst: Path) -> dict:
                               inverseBindMatrices=ibm_acc, skeleton=base_idx))
 
     skinned = 0
+    skin_prims = []
     for node in gltf.nodes[:base_idx]:
         if node.mesh is None:
             continue
@@ -352,6 +483,11 @@ def rig_glb(src: Path, dst: Path) -> dict:
             ji, ww = skin_weights(pos.astype(np.float64), joints, layout)
             prim.attributes.JOINTS_0 = add_view_accessor(ji, pg.UNSIGNED_SHORT, "VEC4", pg.ARRAY_BUFFER)
             prim.attributes.WEIGHTS_0 = add_view_accessor(ww, pg.FLOAT, "VEC4", pg.ARRAY_BUFFER)
+            if prim.indices is not None:
+                idx = _read_accessor(gltf, blob, prim.indices).reshape(-1).astype(np.int64)
+            else:
+                idx = np.arange(acc.count, dtype=np.int64)
+            skin_prims.append((pos.astype(np.float64), ji, ww, idx))
             skinned += 1
         node.skin = 0
     if not skinned:
@@ -422,21 +558,49 @@ def rig_glb(src: Path, dst: Path) -> dict:
     def envelope(t: float, dur: float, ramp: float = 0.5) -> float:
         return smooth(t / ramp) * smooth((dur - t) / ramp)
 
+    stretch = _Stretch(joints, skin_prims, H)
+    clip_gain: dict[str, float] = {}
+    MAX_STRETCH = 0.03  # edges may change by at most 3% of body height before a clip is toned down
+
     def add_clip(name: str, dur: float, rot_fn, trans_fn=None, fps: int = 30) -> None:
         ts = np.arange(0, int(round(dur * fps)) + 1, dtype=np.float64) / fps
-        times_c = ts.astype(np.float32)
-        t_acc_c = add_view_accessor(times_c, pg.FLOAT, "SCALAR", minmax=True)
-        clip = pg.Animation(name=name, samplers=[], channels=[])
+        raw_q = {}
         for jn, fn in rot_fn.items():
             q = np.array([fn(float(t)) for t in ts], dtype=np.float64)
-            q /= np.linalg.norm(q, axis=1, keepdims=True)
-            o = add_view_accessor(q.astype(np.float32), pg.FLOAT, "VEC4")
+            raw_q[jn] = q / np.linalg.norm(q, axis=1, keepdims=True)
+        raw_t = {jn: np.array([fn(float(t)) for t in ts], dtype=np.float64) for jn, fn in (trans_fn or {}).items()}
+        rest_t = {jn: jpos[jn] for jn in raw_t}  # translated joints here are root-level (world == local)
+        jidx = {jn: names[jn] - base_idx for jn in list(raw_q) + list(raw_t)}
+        frames = list(range(0, len(ts), max(1, fps // 2)))
+
+        def worst(gain: float) -> float:
+            w = 0.0
+            for f in frames:
+                rots = {jidx[jn]: tuple(_scale_quat(q[f:f + 1], gain)[0]) for jn, q in raw_q.items()}
+                trans = {jidx[jn]: rest_t[jn] + (t[f] - rest_t[jn]) * gain for jn, t in raw_t.items()}
+                w = max(w, stretch.measure(rots, trans))
+            return w
+
+        gain = 0.2
+        for g in (1.0, 0.8, 0.6, 0.45, 0.3):
+            if worst(g) <= MAX_STRETCH:
+                gain = g
+                break
+        clip_gain[name] = gain
+        if gain < 1.0:
+            log.info("clip %s toned down to %.0f%% to avoid stretching the mesh", name, gain * 100)
+
+        t_acc_c = add_view_accessor(ts.astype(np.float32), pg.FLOAT, "SCALAR", minmax=True)
+        clip = pg.Animation(name=name, samplers=[], channels=[])
+        for jn, q in raw_q.items():
+            qg = _scale_quat(q, gain) if gain < 1.0 else q
+            o = add_view_accessor(qg.astype(np.float32), pg.FLOAT, "VEC4")
             clip.samplers.append(pg.AnimationSampler(input=t_acc_c, output=o, interpolation="LINEAR"))
             clip.channels.append(pg.AnimationChannel(
                 sampler=len(clip.samplers) - 1, target=pg.AnimationChannelTarget(node=names[jn], path="rotation")))
-        for jn, fn in (trans_fn or {}).items():
-            tr = np.array([fn(float(t)) for t in ts], dtype=np.float32)
-            o = add_view_accessor(tr, pg.FLOAT, "VEC3")
+        for jn, t in raw_t.items():
+            tg = rest_t[jn] + (t - rest_t[jn]) * gain
+            o = add_view_accessor(tg.astype(np.float32), pg.FLOAT, "VEC3")
             clip.samplers.append(pg.AnimationSampler(input=t_acc_c, output=o, interpolation="LINEAR"))
             clip.channels.append(pg.AnimationChannel(
                 sampler=len(clip.samplers) - 1, target=pg.AnimationChannelTarget(node=names[jn], path="translation")))
@@ -453,23 +617,28 @@ def rig_glb(src: Path, dst: Path) -> dict:
     TAU = 2 * math.pi
     sgn = {"Left": 1, "Right": -1}
 
-    # WAVE (5 s): left arm goes up, forearm waves ~4 times, then comes back down.
+    # WAVE (5 s). Uses whichever arm was found in the mesh. With no arms (blob / animal / object) it becomes a
+    # greeting: a bow plus a head tilt, so the button still does something sensible.
     WD = 5.0
-    up = arm_raise("Left")
-    def wave_upper(t):
-        e = envelope(t, WD, 0.7)
-        return rot((Z, up * e))
-    def wave_lower(t):
-        e = envelope(t, WD, 1.0)
-        return rot((Z, D(28) * math.sin(TAU * 0.9 * t) * e))
-    def wave_body(t):
-        e = envelope(t, WD, 0.8)
-        return rot((Z, D(-3) * e), (Y, D(5) * math.sin(TAU * 0.45 * t) * e))
-    def wave_head(t):
-        e = envelope(t, WD, 0.8)
-        return rot((Z, D(6) * e), (Y, D(-6) * e))
-    add_clip("wave", WD, {"LeftUpperArm": wave_upper, "LeftLowerArm": wave_lower, "Spine": wave_body,
-                          "Head": wave_head})
+    arms = [sd for sd in ("Left", "Right") if layout.arm_found.get(sd)]
+    wave_side = arms[0] if arms else None
+    if wave_side:
+        ws = sgn[wave_side]
+        up = arm_raise(wave_side)
+        wave_chan = {
+            f"{wave_side}UpperArm": lambda t: rot((Z, ws * up * envelope(t, WD, 0.7))),
+            f"{wave_side}LowerArm": lambda t: rot((Z, ws * D(28) * math.sin(TAU * 0.9 * t) * envelope(t, WD, 1.0))),
+            "Spine": lambda t: rot((Z, -ws * D(3) * envelope(t, WD, 0.8)),
+                                   (Y, D(5) * math.sin(TAU * 0.45 * t) * envelope(t, WD, 0.8))),
+            "Head": lambda t: rot((Z, ws * D(6) * envelope(t, WD, 0.8)), (Y, -ws * D(6) * envelope(t, WD, 0.8))),
+        }
+    else:
+        wave_chan = {
+            "Spine": lambda t: rot((X, D(14) * math.sin(math.pi * min(t / WD, 1.0)) ** 2)),
+            "Head": lambda t: rot((Z, D(10) * math.sin(TAU * 0.6 * t) * envelope(t, WD, 0.8)),
+                                  (X, D(6) * envelope(t, WD, 0.8))),
+        }
+    add_clip("wave", WD, wave_chan)
 
     # DANCE (5 s, 4 beats of 1.25 s): bounce, hip/shoulder twist, arms pumping up and out, head nod.
     DD, BEAT = 5.0, 1.25
@@ -517,17 +686,21 @@ def rig_glb(src: Path, dst: Path) -> dict:
         e = d_env(t)
         dy = 0.018 * H * (0.5 - 0.5 * math.cos(TAU * t / (BEAT / 2))) * e
         return hips_rest + np.array([0.0, dy, 0.0])
-    add_clip("dance", DD, {
-        "Hips": d_hips, "Spine": d_spine, "Head": d_head,
-        "LeftUpperArm": d_arm("Left"), "RightUpperArm": d_arm("Right"),
-        "LeftLowerArm": d_elbow("Left"), "RightLowerArm": d_elbow("Right"),
-        "LeftUpperLeg": d_leg("Left"), "RightUpperLeg": d_leg("Right"),
-        "LeftLowerLeg": d_knee("Left"), "RightLowerLeg": d_knee("Right"),
-    }, {"Hips": d_bounce})
+    dance_chan = {"Hips": d_hips, "Spine": d_spine, "Head": d_head}
+    for sd in ("Left", "Right"):
+        if layout.arm_found.get(sd):
+            dance_chan[f"{sd}UpperArm"] = d_arm(sd)
+            dance_chan[f"{sd}LowerArm"] = d_elbow(sd)
+        if layout.has_legs:
+            dance_chan[f"{sd}UpperLeg"] = d_leg(sd)
+            dance_chan[f"{sd}LowerLeg"] = d_knee(sd)
+    add_clip("dance", DD, dance_chan, {"Hips": d_bounce})
 
     while len(blob) % 4:
         blob.append(0)
     gltf.set_binary_blob(bytes(blob))
     gltf.buffers[0].byteLength = len(blob)
     gltf.save_binary(str(dst))
-    return {"joints": len(joints), "primitives": skinned}
+    return {"joints": len(joints), "primitives": skinned, "reoriented": reoriented,
+            "legs": layout.has_legs, "arms": [sd for sd in ("Left", "Right") if layout.arm_found.get(sd)],
+            "clip_gain": clip_gain}
