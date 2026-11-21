@@ -14,6 +14,7 @@ struct MascotEditor: View {
     @State private var generating = false
     @State private var aiError: String?
     @State private var previewMood: PetMood = .idle
+    @State private var confirmRedo = false
     private var library: AvatarLibrary { AvatarLibrary.shared }
 
     private var petName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Loonie" : name }
@@ -44,6 +45,7 @@ struct MascotEditor: View {
                 .background(photo.isEmpty || color == .leaf
                             ? (library.activeBackground ?? mint) : color.fill.opacity(0.30),
                             in: RoundedRectangle(cornerRadius: 22))
+                .clipShape(RoundedRectangle(cornerRadius: 22))
                 controls
             }.padding(20)
         }
@@ -158,7 +160,7 @@ struct MascotEditor: View {
                 ForEach(PetMood.allCases, id: \.self) { mood in
                     let state = library.state(id, mood)
                     Button {
-                        if state == .done { previewMood = mood }
+                        if library.hasAnimation(id, mood) { previewMood = mood }
                     } label: {
                         VStack(spacing: 4) {
                             Group {
@@ -172,9 +174,9 @@ struct MascotEditor: View {
                             Text(mood.title).font(.caption.weight(previewMood == mood ? .bold : .regular))
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 8)
-                        .background(previewMood == mood && state == .done ? mint : .white, in: RoundedRectangle(cornerRadius: 11))
+                        .background(previewMood == mood && library.hasAnimation(id, mood) ? mint : .white, in: RoundedRectangle(cornerRadius: 11))
                         .overlay { RoundedRectangle(cornerRadius: 11).strokeBorder(line) }
-                    }.buttonStyle(.plain).disabled(state != .done)
+                    }.buttonStyle(.plain).disabled(!library.hasAnimation(id, mood))
                 }
             }
             if let failure = PetMood.allCases.compactMap({ mood -> String? in
@@ -187,6 +189,20 @@ struct MascotEditor: View {
                 Button { library.generateMissingAnimations(for: id) } label: {
                     Label("Create missing animations", systemImage: "arrow.clockwise")
                 }.font(.subheadline.bold()).foregroundStyle(forest)
+            }
+            if library.hasAnimation(id, .wave) && library.hasAnimation(id, .dance) && !library.isGenerating(id) {
+                Button { confirmRedo = true } label: {
+                    Label("Redo wave & dance (wider frame)", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .font(.subheadline.bold()).foregroundStyle(forest)
+                .confirmationDialog("Re-create the wave and dance animations?", isPresented: $confirmRedo, titleVisibility: .visible) {
+                    Button("Redo both (2 paid video calls, about $0.14)") {
+                        library.regenerateAnimations([.wave, .dance], for: id)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Your current clips keep playing until the new ones are ready. The avatar itself is not re-created.")
+                }
             }
             Text("Saved on this phone, so switching avatars never re-creates them.")
                 .font(.caption2).foregroundStyle(muted)
