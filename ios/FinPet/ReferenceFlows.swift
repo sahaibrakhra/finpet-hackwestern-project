@@ -11,7 +11,6 @@ struct MascotEditor: View {
     @State private var selection: PhotosPickerItem?
     @State private var photoError = false
     @State private var step = 1
-    @AppStorage("finpet.gemini.key") private var geminiKey = ""
     @State private var originalPhoto = Data()
     @State private var generating = false
     @State private var aiError: String?
@@ -84,7 +83,7 @@ struct MascotEditor: View {
         aiError = nil
         defer { generating = false }
         do {
-            let avatar = try await GeminiMascotService(apiKey: geminiKey).generateAvatar(from: originalPhoto)
+            let avatar = try await MascotService().generateAvatar(from: originalPhoto)
             if !Task.isCancelled { photo = avatar }
         } catch {
             if !Task.isCancelled { aiError = error.localizedDescription }
@@ -105,10 +104,6 @@ struct MascotEditor: View {
             }.petCard()
             if photoError { Text("That photo couldn’t be opened.").font(.footnote).foregroundStyle(muted) }
             VStack(alignment: .leading, spacing: 8) {
-                SecureField("Gemini API key (needed to create your avatar)", text: $geminiKey)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
                 if generating {
                     HStack(spacing: 8) { ProgressView(); Text("Creating your full-body avatar…").font(.footnote) }
                 }
@@ -118,7 +113,7 @@ struct MascotEditor: View {
                         Label(aiError == nil && !photo.isEmpty ? "Regenerate avatar" : "Try again", systemImage: "wand.and.stars")
                     }.font(.subheadline.bold()).foregroundStyle(forest)
                 }
-                Text("Your photo is sent to Google's Gemini API to generate the avatar.")
+                Text("Your photo is sent to our server and Google's Gemini to generate the avatar.")
                     .font(.caption2).foregroundStyle(muted)
             }.petCard()
             if !photo.isEmpty {
