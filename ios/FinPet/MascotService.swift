@@ -1,10 +1,8 @@
 import Foundation
 import UIKit
-import Vision
-import CoreImage
 
-/// Sends the user's photo to the FinPet backend, which asks Gemini for a full-body cartoon avatar.
-/// The Gemini key lives only on the backend (backend/.env); the app never sees it.
+/// Talks to the FinPet backend, which holds the Gemini key and does all the Gemini calls.
+/// The app never sees an API key.
 struct MascotService {
     enum MascotError: LocalizedError {
         case badImage, server(String), unreachable
@@ -18,29 +16,59 @@ struct MascotService {
         }
     }
 
+    struct Avatar {
+        /// Transparent full-body PNG (9:16).
+        let png: Data
+        /// Background color Gemini drew behind the avatar, as "#RRGGBB". The app tints its stage with it.
+        let background: String
+    }
+
+    struct Animation {
+        let fps: Double
+        /// Transparent PNG frames, same canvas as the avatar.
+        let frames: [Data]
+    }
+
     /// Backend base URL. Set `FinPetBackendURL` in ios/Info.plist (use your computer's LAN IP on a real device).
     static var baseURL: URL {
         let configured = Bundle.main.object(forInfoDictionaryKey: "FinPetBackendURL") as? String
         return URL(string: configured ?? "") ?? URL(string: "http://localhost:8000")!
     }
 
-    /// Returns PNG data (transparent background when it can be cut out on-device) of the full-body avatar.
-    func generateAvatar(from photoData: Data) async throws -> Data {
+    /// Uploads the photo; the server asks Gemini for a full-body avatar and cuts out its background.
+    func generateAvatar(from photoData: Data) async throws -> Avatar {
         guard UIImage(data: photoData) != nil else { throw MascotError.badImage }
+        var form = MultipartForm()
+        form.addFile(name: "photo", filename: "photo.jpg", mimeType: "image/jpeg", data: photoData)
+        let data = try await send(path: "api/avatar", form: form, timeout: 150)
+        struct Payload: Decodable { let avatar: Data; let background: String }
+        guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else {
+            throw MascotError.server("Unexpected response from the server.")
+        }
+        return Avatar(png: payload.avatar, background: payload.background)
+    }
 
-        let boundary = "finpet-\(UUID().uuidString)"
-        var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Disposition: form-data; name=\"photo\"; filename=\"photo.jpg\"\r\n".data(using: .utf8)!)
-        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
-        body.append(photoData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+    /// Asks the server for one short animation (`idle`, `wave`, `dance` or `cry`) of an existing avatar.
+    /// This is a paid Gemini video call, so callers should only request clips they do not already have.
+    func generateAnimation(kind: String, avatarPNG: Data, background: String) async throws -> Animation {
+        var form = MultipartForm()
+        form.addField(name: "kind", value: kind)
+        form.addField(name: "background", value: background)
+        form.addFile(name: "avatar", filename: "avatar.png", mimeType: "image/png", data: avatarPNG)
+        let data = try await send(path: "api/animate", form: form, timeout: 420)
+        struct Payload: Decodable { let fps: Double; let frames: [Data] }
+        guard let payload = try? JSONDecoder().decode(Payload.self, from: data), !payload.frames.isEmpty else {
+            throw MascotError.server("Unexpected response from the server.")
+        }
+        return Animation(fps: payload.fps, frames: payload.frames)
+    }
 
-        var request = URLRequest(url: Self.baseURL.appendingPathComponent("api/avatar"))
+    private func send(path: String, form: MultipartForm, timeout: TimeInterval) async throws -> Data {
+        var request = URLRequest(url: Self.baseURL.appendingPathComponent(path))
         request.httpMethod = "POST"
-        request.timeoutInterval = 150
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.httpBody = body
+        request.timeoutInterval = timeout
+        request.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
 
         let data: Data
         let response: URLResponse
@@ -56,34 +84,35 @@ struct MascotService {
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard status == 200 else {
+            struct ServerError: Decodable { let detail: String }
             let detail = (try? JSONDecoder().decode(ServerError.self, from: data))?.detail
             throw MascotError.server(detail ?? "Server error (\(status)).")
         }
-        guard let image = UIImage(data: data) else { throw MascotError.badImage }
+        return data
+    }
+}
 
-        let finalImage = Self.removeBackground(from: image) ?? image
-        guard let png = finalImage.pngData() else { throw MascotError.badImage }
-        return png
+private struct MultipartForm {
+    let boundary = "finpet-\(UUID().uuidString)"
+    private var body = Data()
+
+    mutating func addField(name: String, value: String) {
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".utf8))
+        body.append(Data("\(value)\r\n".utf8))
     }
 
-    /// Cuts out the subject with Vision (iOS 17+). Returns nil if it fails (e.g. on some simulators),
-    /// in which case the generated image is used as-is on its plain background.
-    private static func removeBackground(from image: UIImage) -> UIImage? {
-        guard let cgImage = image.cgImage else { return nil }
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage)
-        do {
-            try handler.perform([request])
-            guard let result = request.results?.first else { return nil }
-            let buffer = try result.generateMaskedImage(ofInstances: result.allInstances,
-                                                        from: handler, croppedToInstancesExtent: true)
-            let ci = CIImage(cvPixelBuffer: buffer)
-            guard let out = CIContext().createCGImage(ci, from: ci.extent) else { return nil }
-            return UIImage(cgImage: out)
-        } catch {
-            return nil
-        }
+    mutating func addFile(name: String, filename: String, mimeType: String, data: Data) {
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n".utf8))
+        body.append(Data("Content-Type: \(mimeType)\r\n\r\n".utf8))
+        body.append(data)
+        body.append(Data("\r\n".utf8))
     }
 
-    private struct ServerError: Decodable { let detail: String }
+    func finalized() -> Data {
+        var out = body
+        out.append(Data("--\(boundary)--\r\n".utf8))
+        return out
+    }
 }

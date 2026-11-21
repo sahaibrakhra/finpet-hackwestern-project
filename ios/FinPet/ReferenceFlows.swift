@@ -14,6 +14,8 @@ struct MascotEditor: View {
     @State private var originalPhoto = Data()
     @State private var generating = false
     @State private var aiError: String?
+    @State private var previewMood: PetMood = .idle
+    private var library: AvatarLibrary { AvatarLibrary.shared }
 
     private var petName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Loonie" : name }
     private let profiles = ["Just tryna be normal", "Hype bestie", "Vigilante", "Evil", "Quiet coach"]
@@ -37,14 +39,15 @@ struct MascotEditor: View {
                 }
                 Text(step == 1 ? "Make it yours" : "Meet \(petName)").font(.system(size: 31, weight: .heavy))
                 VStack(spacing: 5) {
-                    Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo).frame(width: 140)
+                    Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo, mood: previewMood)
+                        .frame(width: photo.isEmpty ? 140 : 190)
                         .opacity(generating ? 0.35 : 1)
                         .overlay { if generating { ProgressView() } }
                     Text(petName).font(.title2.weight(.heavy))
                     Text("“\(sample)”").font(.subheadline).foregroundStyle(muted).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(16)
-                .background(mint, in: RoundedRectangle(cornerRadius: 22))
+                .background(library.activeBackground ?? mint, in: RoundedRectangle(cornerRadius: 22))
                 if step == 1 { controls }
             }.padding(20)
         }
@@ -84,7 +87,12 @@ struct MascotEditor: View {
         defer { generating = false }
         do {
             let avatar = try await MascotService().generateAvatar(from: originalPhoto)
-            if !Task.isCancelled { photo = avatar }
+            if !Task.isCancelled {
+                let entry = library.create(avatarPNG: avatar.png, background: avatar.background)
+                photo = avatar.png
+                previewMood = .idle
+                library.generateMissingAnimations(for: entry.id)
+            }
         } catch {
             if !Task.isCancelled { aiError = error.localizedDescription }
         }
@@ -117,9 +125,11 @@ struct MascotEditor: View {
                     .font(.caption2).foregroundStyle(muted)
             }.petCard()
             if !photo.isEmpty {
-                Button("Use illustrated mascot") { photo = Data(); originalPhoto = Data(); selection = nil; aiError = nil }
+                Button("Use illustrated mascot") { photo = Data(); originalPhoto = Data(); selection = nil; aiError = nil; library.setActive(nil) }
                     .font(.footnote).foregroundStyle(forest)
             }
+            if let id = library.activeID { animationsCard(id) }
+            if !library.entries.isEmpty { avatarPicker }
             fieldLabel("Name")
             TextField("Loonie", text: $name).padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
                 .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
@@ -141,6 +151,92 @@ struct MascotEditor: View {
             options(["None", "Scarf", "Toque", "Grad cap"], selected: $accessory)
             fieldLabel("Personality")
             options(profiles, selected: $personality)
+        }
+    }
+
+    /// Per-animation status for the active avatar, with a preview chip once each clip is saved.
+    private func animationsCard(_ id: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Animations").font(.subheadline.bold())
+            HStack(spacing: 8) {
+                ForEach(PetMood.allCases, id: \.self) { mood in
+                    let state = library.state(id, mood)
+                    Button {
+                        if state == .done { previewMood = mood }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Group {
+                                switch state {
+                                case .done: Image(systemName: previewMood == mood ? "play.circle.fill" : "play.circle")
+                                case .running: ProgressView()
+                                case .failed: Image(systemName: "exclamationmark.triangle")
+                                case nil: Image(systemName: "circle.dashed")
+                                }
+                            }.frame(height: 22)
+                            Text(mood.title).font(.caption.weight(previewMood == mood ? .bold : .regular))
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(previewMood == mood && state == .done ? mint : .white, in: RoundedRectangle(cornerRadius: 11))
+                        .overlay { RoundedRectangle(cornerRadius: 11).strokeBorder(line) }
+                    }.buttonStyle(.plain).disabled(state != .done)
+                }
+            }
+            if let failure = PetMood.allCases.compactMap({ mood -> String? in
+                if case .failed(let message)? = library.state(id, mood) { return message }
+                return nil
+            }).first {
+                Text(failure).font(.footnote).foregroundStyle(.red)
+            }
+            if !library.missingAnimations(id).isEmpty && !PetMood.allCases.contains(where: { library.state(id, $0) == .running }) {
+                Button { library.generateMissingAnimations(for: id) } label: {
+                    Label("Create missing animations", systemImage: "arrow.clockwise")
+                }.font(.subheadline.bold()).foregroundStyle(forest)
+            }
+            Text("Saved on this phone, so switching avatars never re-creates them.")
+                .font(.caption2).foregroundStyle(muted)
+        }.petCard()
+    }
+
+    /// Previously created avatars. Switching only loads what is already saved on the phone.
+    private var avatarPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            fieldLabel("My avatars")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(library.entries) { entry in
+                        Button {
+                            if let data = library.avatarData(entry.id) {
+                                library.setActive(entry.id)
+                                photo = data
+                                previewMood = .idle
+                            }
+                        } label: {
+                            Group {
+                                if let data = library.avatarData(entry.id), let image = UIImage(data: data) {
+                                    Image(uiImage: image).resizable().scaledToFit()
+                                } else {
+                                    Color.clear
+                                }
+                            }
+                            .frame(width: 54, height: 78).padding(6)
+                            .background(Color(hex: entry.background) ?? mint, in: RoundedRectangle(cornerRadius: 14))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(library.activeID == entry.id ? forest : line,
+                                                  lineWidth: library.activeID == entry.id ? 3 : 1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Delete avatar", role: .destructive) {
+                                let wasActive = library.activeID == entry.id
+                                library.delete(entry.id)
+                                if wasActive { photo = Data() }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
