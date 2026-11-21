@@ -39,6 +39,8 @@ struct MascotEditor: View {
                 Text(step == 1 ? "Make it yours" : "Meet \(petName)").font(.system(size: 31, weight: .heavy))
                 VStack(spacing: 5) {
                     Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo).frame(width: 140)
+                        .opacity(generating ? 0.35 : 1)
+                        .overlay { if generating { ProgressView() } }
                     Text(petName).font(.title2.weight(.heavy))
                     Text("“\(sample)”").font(.subheadline).foregroundStyle(muted).multilineTextAlignment(.center)
                 }
@@ -63,28 +65,29 @@ struct MascotEditor: View {
             do {
                 guard let data = try await selection.loadTransferable(type: Data.self),
                       let image = UIImage(data: data), !Task.isCancelled else { return }
-                let scale = min(1, 500 / max(image.size.width, image.size.height))
+                let scale = min(1, 1024 / max(image.size.width, image.size.height))
                 let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
                 let resized = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-                photo = resized.jpegData(compressionQuality: 0.8) ?? Data()
-                originalPhoto = photo
-                aiError = nil
-                photoError = photo.isEmpty
+                originalPhoto = resized.jpegData(compressionQuality: 0.8) ?? Data()
+                photoError = originalPhoto.isEmpty
+                if !photoError { await generateAvatar() }
             } catch {
                 if !Task.isCancelled { photoError = true }
             }
         }
     }
 
-    private func generateMascot() async {
+    /// Generates a full-body avatar from the uploaded photo. On failure the previous mascot is kept.
+    private func generateAvatar() async {
         guard !originalPhoto.isEmpty else { return }
         generating = true
         aiError = nil
         defer { generating = false }
         do {
-            photo = try await GeminiMascotService(apiKey: geminiKey).generateMascot(from: originalPhoto)
+            let avatar = try await GeminiMascotService(apiKey: geminiKey).generateAvatar(from: originalPhoto)
+            if !Task.isCancelled { photo = avatar }
         } catch {
-            aiError = error.localizedDescription
+            if !Task.isCancelled { aiError = error.localizedDescription }
         }
     }
 
@@ -101,31 +104,23 @@ struct MascotEditor: View {
                     .font(.subheadline.bold()).foregroundStyle(forest)
             }.petCard()
             if photoError { Text("That photo couldn’t be opened.").font(.footnote).foregroundStyle(muted) }
-            if !originalPhoto.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        Task { await generateMascot() }
-                    } label: {
-                        if generating {
-                            HStack { ProgressView(); Text("Creating your mascot…") }
-                        } else {
-                            Label(photo == originalPhoto ? "Turn it into an AI mascot" : "Regenerate AI mascot",
-                                  systemImage: "wand.and.stars")
-                        }
-                    }
-                    .font(.subheadline.bold()).foregroundStyle(forest).disabled(generating)
-                    if photo != originalPhoto {
-                        Button("Use my original photo") { photo = originalPhoto }.font(.footnote).foregroundStyle(forest)
-                    }
-                    SecureField("Gemini API key", text: $geminiKey)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
-                    if let aiError { Text(aiError).font(.footnote).foregroundStyle(.red) }
-                    Text("Your photo is sent to Google's Gemini API to make the mascot.")
-                        .font(.caption2).foregroundStyle(muted)
-                }.petCard()
-            }
+            VStack(alignment: .leading, spacing: 8) {
+                SecureField("Gemini API key (needed to create your avatar)", text: $geminiKey)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
+                if generating {
+                    HStack(spacing: 8) { ProgressView(); Text("Creating your full-body avatar…").font(.footnote) }
+                }
+                if let aiError { Text(aiError).font(.footnote).foregroundStyle(.red) }
+                if !originalPhoto.isEmpty && !generating {
+                    Button { Task { await generateAvatar() } } label: {
+                        Label(aiError == nil && !photo.isEmpty ? "Regenerate avatar" : "Try again", systemImage: "wand.and.stars")
+                    }.font(.subheadline.bold()).foregroundStyle(forest)
+                }
+                Text("Your photo is sent to Google's Gemini API to generate the avatar.")
+                    .font(.caption2).foregroundStyle(muted)
+            }.petCard()
             if !photo.isEmpty {
                 Button("Use illustrated mascot") { photo = Data(); originalPhoto = Data(); selection = nil; aiError = nil }
                     .font(.footnote).foregroundStyle(forest)

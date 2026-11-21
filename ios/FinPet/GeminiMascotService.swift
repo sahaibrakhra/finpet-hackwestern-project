@@ -1,37 +1,42 @@
 import Foundation
 import UIKit
+import Vision
+import CoreImage
 
-/// Turns a user photo into a cartoon mascot using a Gemini image model (plain REST, no SDK).
-/// Key: https://aistudio.google.com/apikey. Note: Google may require a billing-enabled key for image models.
+/// Turns a user photo into a full-body cartoon avatar using a Gemini image model (plain REST, no SDK).
+/// Requires a billing-enabled key from https://aistudio.google.com/apikey (image models are not on the free tier).
 struct GeminiMascotService {
     enum MascotError: LocalizedError {
-        case missingKey, badImage, http(Int, String), noImage
+        case missingKey, badImage, http(Int, String), noImage(String)
 
         var errorDescription: String? {
             switch self {
-            case .missingKey: return "Add a Gemini API key to create an AI mascot."
+            case .missingKey: return "Add your Gemini API key to create an avatar."
             case .badImage: return "Could not read that image."
-            case .http(429, _): return "Gemini quota reached (image models may need a billing-enabled key). Try again later."
+            case .http(429, _): return "Gemini rate limit or quota reached. Try again shortly."
             case .http(let code, let msg): return "Gemini error \(code): \(msg)"
-            case .noImage: return "Gemini did not return an image. Try a clearer photo."
+            case .noImage(let note): return note.isEmpty ? "Gemini did not return an image. Try a clearer photo." : "Gemini did not return an image: \(note)"
             }
         }
     }
 
     /// Change here if Google retires or renames the image model.
-    static let model = "gemini-2.5-flash-image"
+    static let model = "gemini-3.1-flash-image"
 
     static let prompt = """
-    Turn the subject of this photo into a cute, friendly cartoon pet mascot. \
-    Keep the recognizable colors, fur/hair and accessories of the original. \
-    Clean flat illustration style with a thick dark outline, front-facing, full body, \
-    centered, square composition, on a plain solid light mint background. No text.
+    Create a full-body cartoon avatar of the subject in this photo. \
+    Show the entire body from head to toe, standing in a relaxed neutral front-facing pose, \
+    with both feet visible and nothing cropped. \
+    Preserve the subject's recognizable features: face, hairstyle or fur, skin tone, \
+    colors and clothing or accessories (or a faithful cartoon version of the creature or object if it is not a person). \
+    Cute, friendly, clean flat illustration style with a thick dark outline. \
+    Centered, plain solid white background, no shadows, no props, no text.
     """
 
     var apiKey: String
 
-    /// Returns JPEG data of the generated mascot (max side 500).
-    func generateMascot(from photoData: Data) async throws -> Data {
+    /// Returns PNG data (transparent background when it can be cut out on-device) of the full-body avatar, max side 600.
+    func generateAvatar(from photoData: Data) async throws -> Data {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw MascotError.missingKey }
         guard UIImage(data: photoData) != nil else { throw MascotError.badImage }
@@ -61,15 +66,37 @@ struct GeminiMascotService {
         }
 
         let decoded = try JSONDecoder().decode(GenerateResponse.self, from: data)
+        var note = ""
         for part in decoded.candidates?.first?.content?.parts ?? [] {
+            if let text = part.text { note += text }
             if let b64 = (part.inlineData ?? part.inline_data)?.data,
                let bytes = Data(base64Encoded: b64),
-               let image = UIImage(data: bytes),
-               let jpeg = Self.resized(image, maxSide: 500).jpegData(compressionQuality: 0.85) {
-                return jpeg
+               let image = UIImage(data: bytes) {
+                let small = Self.resized(image, maxSide: 600)
+                let finalImage = Self.removeBackground(from: small) ?? small
+                if let png = finalImage.pngData() { return png }
             }
         }
-        throw MascotError.noImage
+        throw MascotError.noImage(note)
+    }
+
+    /// Cuts out the subject with Vision (iOS 17+). Returns nil if it fails (e.g. on some simulators),
+    /// in which case the generated image is used as-is on its plain background.
+    private static func removeBackground(from image: UIImage) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
+        let request = VNGenerateForegroundInstanceMaskRequest()
+        let handler = VNImageRequestHandler(cgImage: cgImage)
+        do {
+            try handler.perform([request])
+            guard let result = request.results?.first else { return nil }
+            let buffer = try result.generateMaskedImage(ofInstances: result.allInstances,
+                                                        from: handler, croppedToInstancesExtent: true)
+            let ci = CIImage(cvPixelBuffer: buffer)
+            guard let out = CIContext().createCGImage(ci, from: ci.extent) else { return nil }
+            return UIImage(cgImage: out)
+        } catch {
+            return nil
+        }
     }
 
     private static func resized(_ image: UIImage, maxSide: CGFloat) -> UIImage {
@@ -94,6 +121,7 @@ struct GeminiMascotService {
         struct Part: Decodable {
             let inlineData: InlineData?
             let inline_data: InlineData?
+            let text: String?
         }
         struct Content: Decodable { let parts: [Part]? }
         struct Candidate: Decodable { let content: Content? }
