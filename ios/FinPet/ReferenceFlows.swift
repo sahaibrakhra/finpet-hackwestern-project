@@ -11,6 +11,10 @@ struct MascotEditor: View {
     @State private var selection: PhotosPickerItem?
     @State private var photoError = false
     @State private var step = 1
+    @AppStorage("finpet.gemini.key") private var geminiKey = ""
+    @State private var originalPhoto = Data()
+    @State private var generating = false
+    @State private var aiError: String?
 
     private var petName: String { name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Loonie" : name }
     private let profiles = ["Just tryna be normal", "Hype bestie", "Vigilante", "Evil", "Quiet coach"]
@@ -63,10 +67,24 @@ struct MascotEditor: View {
                 let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
                 let resized = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
                 photo = resized.jpegData(compressionQuality: 0.8) ?? Data()
+                originalPhoto = photo
+                aiError = nil
                 photoError = photo.isEmpty
             } catch {
                 if !Task.isCancelled { photoError = true }
             }
+        }
+    }
+
+    private func generateMascot() async {
+        guard !originalPhoto.isEmpty else { return }
+        generating = true
+        aiError = nil
+        defer { generating = false }
+        do {
+            photo = try await GeminiMascotService(apiKey: geminiKey).generateMascot(from: originalPhoto)
+        } catch {
+            aiError = error.localizedDescription
         }
     }
 
@@ -83,8 +101,34 @@ struct MascotEditor: View {
                     .font(.subheadline.bold()).foregroundStyle(forest)
             }.petCard()
             if photoError { Text("That photo couldn’t be opened.").font(.footnote).foregroundStyle(muted) }
+            if !originalPhoto.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        Task { await generateMascot() }
+                    } label: {
+                        if generating {
+                            HStack { ProgressView(); Text("Creating your mascot…") }
+                        } else {
+                            Label(photo == originalPhoto ? "Turn it into an AI mascot" : "Regenerate AI mascot",
+                                  systemImage: "wand.and.stars")
+                        }
+                    }
+                    .font(.subheadline.bold()).foregroundStyle(forest).disabled(generating)
+                    if photo != originalPhoto {
+                        Button("Use my original photo") { photo = originalPhoto }.font(.footnote).foregroundStyle(forest)
+                    }
+                    SecureField("Gemini API key", text: $geminiKey)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
+                    if let aiError { Text(aiError).font(.footnote).foregroundStyle(.red) }
+                    Text("Your photo is sent to Google's Gemini API to make the mascot.")
+                        .font(.caption2).foregroundStyle(muted)
+                }.petCard()
+            }
             if !photo.isEmpty {
-                Button("Use illustrated mascot") { photo = Data(); selection = nil }.font(.footnote).foregroundStyle(forest)
+                Button("Use illustrated mascot") { photo = Data(); originalPhoto = Data(); selection = nil; aiError = nil }
+                    .font(.footnote).foregroundStyle(forest)
             }
             fieldLabel("Name")
             TextField("Loonie", text: $name).padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
