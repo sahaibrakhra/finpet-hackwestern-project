@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MascotStage: View {
     let mascot: Pet
+    @Environment(\.mascotPalette) private var palette
     /// Tap = wave, long press = dance, then back to idle. Only plays clips that are already saved.
     @State private var burst: PetMood?
 
@@ -11,23 +12,15 @@ struct MascotStage: View {
             let height = stage.size.height
             let mascotSize = min(stage.size.width * 0.96, height * 0.94)
             ZStack(alignment: .bottom) {
-                // The stage takes the color of the active avatar's background.
-                RoundedRectangle(cornerRadius: 25).fill(
-                    mascot.photo != nil && mascot.color != .leaf
-                        ? mascot.color.fill.opacity(0.30) : (library.activeBackground ?? mint)
-                )
-                Circle()
-                    .fill(.white.opacity(0.32))
-                    .frame(width: height * 0.66)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, -height * 0.13)
-                    .padding(.trailing, -height * 0.12)
+                palette.stage
+                Rectangle()
+                    .fill(palette.ground)
+                    .frame(height: height * 0.23)
                     .accessibilityHidden(true)
-
-                UnevenRoundedRectangle(topLeadingRadius: 32, bottomLeadingRadius: 25,
-                                       bottomTrailingRadius: 25, topTrailingRadius: 32)
-                    .fill(forest.opacity(0.10))
-                    .frame(height: height * 0.24)
+                Ellipse()
+                    .fill(palette.accent.opacity(0.12))
+                    .frame(width: mascotSize * 0.53, height: height * 0.055)
+                    .padding(.bottom, height * 0.11)
                     .accessibilityHidden(true)
 
                 playing
@@ -35,7 +28,7 @@ struct MascotStage: View {
                     .padding(.bottom, height * 0.035)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 25))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
             .animation(.easeInOut(duration: 0.4), value: library.activeID)
         }
     }

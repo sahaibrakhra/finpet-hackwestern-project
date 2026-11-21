@@ -17,6 +17,7 @@ extension View {
 }
 
 struct ActionButton: View {
+    @Environment(\.mascotPalette) private var palette
     let title: String
     var secondary = false
     var action: () -> Void
@@ -24,22 +25,23 @@ struct ActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)
-                .foregroundStyle(secondary ? forest : .white)
-                .background(secondary ? Color.white : forest, in: RoundedRectangle(cornerRadius: 15))
-                .overlay { RoundedRectangle(cornerRadius: 15).strokeBorder(secondary ? line : .clear) }
+                .foregroundStyle(secondary ? palette.accent : .white)
+                .background(secondary ? palette.panel : palette.accent, in: RoundedRectangle(cornerRadius: 15))
+                .overlay { RoundedRectangle(cornerRadius: 15).strokeBorder(secondary ? palette.rule : .clear) }
         }
         .buttonStyle(.plain)
     }
 }
 
 struct Meter: View {
+    @Environment(\.mascotPalette) private var palette
     let progress: Double
     var background = Color.white
     var body: some View {
         GeometryReader { proxy in
             Capsule().fill(background)
                 .overlay(alignment: .leading) {
-                    Capsule().fill(forest).frame(width: proxy.size.width * min(1, max(0, progress)))
+                    Capsule().fill(palette.accent).frame(width: proxy.size.width * min(1, max(0, progress)))
                 }
         }
         .frame(height: 7)

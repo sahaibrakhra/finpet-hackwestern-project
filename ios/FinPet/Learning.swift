@@ -94,6 +94,7 @@ enum LessonLibrary {
 }
 
 struct Quiz: View {
+    @Environment(\.mascotPalette) private var palette
     let pet: Pet
     let lesson: Lesson
     let completed: (Int, [Int]) -> Void
@@ -140,11 +141,11 @@ struct Quiz: View {
             }.padding(20)
         }
         .id(briefing ? -1 : (finished ? questionOrder.count : index))
-        .foregroundStyle(ink).background(cream.ignoresSafeArea())
+        .foregroundStyle(ink).background(palette.paper.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             ActionButton(title: buttonTitle, secondary: !briefing && selected == nil && !finished, action: advance)
                 .disabled(!briefing && selected == nil && !finished)
-                .padding(.horizontal, 20).padding(.vertical, 8).background(cream)
+                .padding(.horizontal, 20).padding(.vertical, 8).background(palette.paper)
         }
     }
 
@@ -152,21 +153,20 @@ struct Quiz: View {
         HStack(spacing: 6) {
             lessonTab("Briefing", isSelected: briefing) { showingBriefing = true }
             lessonTab("Questions", isSelected: !briefing) { showingBriefing = false }
-        }.padding(4).background(mint, in: RoundedRectangle(cornerRadius: 14))
+        }.padding(4).background(palette.panel, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func lessonTab(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.subheadline.bold()).frame(maxWidth: .infinity).padding(.vertical, 9)
                 .background(isSelected ? .white : .clear, in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(isSelected ? forest : muted)
+                .foregroundStyle(isSelected ? palette.accent : muted)
         }.buttonStyle(.plain)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var briefingContent: some View {
         VStack(alignment: .leading, spacing: 17) {
-            Text("Briefing").font(.subheadline.bold()).foregroundStyle(forest)
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
             Text(lesson.quickTake).font(.title3.weight(.medium))
             exampleCard
@@ -195,8 +195,8 @@ struct Quiz: View {
     private var questionContent: some View {
         VStack(alignment: .leading, spacing: 13) {
             Text(lesson.title).font(.subheadline.bold()).foregroundStyle(muted)
-            Text(question.prompt).font(.title3.bold())
-                .frame(maxWidth: .infinity, alignment: .leading).petCard()
+            Text(question.prompt).font(.system(.title2, design: .serif, weight: .semibold))
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 8)
             ForEach(question.choices.indices, id: \.self) { option in
                 Button { selected = option } label: {
                     HStack {
@@ -225,7 +225,7 @@ struct Quiz: View {
 
     private var exampleCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(lesson.example.title).font(.headline).foregroundStyle(forest)
+            Text(lesson.example.title).font(.headline).foregroundStyle(palette.accent)
             ForEach(Array(lesson.example.rows.enumerated()), id: \.offset) { index, row in
                 if index > 0 { Divider() }
                 HStack(alignment: .top, spacing: 10) {
@@ -235,7 +235,7 @@ struct Quiz: View {
                 }.font(.subheadline)
             }
             Text(lesson.example.note).font(.footnote).foregroundStyle(muted)
-        }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
+        }.frame(maxWidth: .infinity, alignment: .leading).petCard(palette.panel, radius: 12)
         .accessibilityElement(children: .contain)
     }
 
@@ -269,7 +269,7 @@ struct Quiz: View {
     private func answerBackground(_ option: Int) -> Color {
         if checked && option == question.correct { return mint }
         if checked && selected == option { return .red.opacity(0.10) }
-        return selected == option ? mint : .white
+        return selected == option ? palette.panel : .white
     }
 
     private var buttonTitle: String {

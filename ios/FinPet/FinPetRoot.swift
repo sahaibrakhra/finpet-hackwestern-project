@@ -29,6 +29,7 @@ private enum Sheet: Identifiable {
 struct FinPetRoot: View {
     @AppStorage("finpet.ref.name") private var name = "Loonie"
     @AppStorage("finpet.ref.color") private var color: PetColor = .leaf
+    @AppStorage("finpet.ref.matchAvatarPalette") private var matchAvatarPalette = true
     @AppStorage("finpet.ref.personality") private var personality = "Just tryna be normal"
     @AppStorage("finpet.ref.photo") private var photo = Data()
     @AppStorage("finpet.education.history") private var history = Data()
@@ -37,11 +38,16 @@ struct FinPetRoot: View {
     @AppStorage("finpet.ref.checkins") private var checkins = ""
     @AppStorage("finpet.ref.friends") private var extraFriends = ""
     @Environment(\.scenePhase) private var scenePhase
+    @State private var avatarBase: UIColor?
     @State private var day = Date()
     @State private var page: Page = .home
     @State private var sheet: Sheet?
     @State private var invite = false
     @State private var friendName = ""
+
+    private var palette: MascotPalette {
+        MascotPalette(base: matchAvatarPalette ? (avatarBase ?? UIColor(color.fill)) : UIColor(color.fill))
+    }
 
     private var petName: String {
         let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -105,7 +111,11 @@ struct FinPetRoot: View {
             .id(page)
         }
         .foregroundStyle(ink)
-        .background(cream.ignoresSafeArea())
+        .background(palette.paper.ignoresSafeArea())
+        .tint(palette.accent)
+        .onChange(of: photo, initial: true) { _, data in
+            avatarBase = MascotPalette.baseColour(photo: data)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) { tabs }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { day = .now }
@@ -123,7 +133,8 @@ struct FinPetRoot: View {
         .fullScreenCover(item: $sheet) { item in
             switch item {
             case .setup:
-                MascotEditor(name: $name, color: $color, personality: $personality,
+                MascotEditor(name: $name, color: $color, matchAvatarPalette: $matchAvatarPalette,
+                             personality: $personality,
                              photo: $photo, close: { sheet = nil })
             case .lesson(let lesson, let key):
                 Quiz(pet: pet(), lesson: lesson, completed: { score, missed in
@@ -162,6 +173,7 @@ struct FinPetRoot: View {
                 }, reviewQuestions: order, close: { sheet = nil })
             }
         }
+        .environment(\.mascotPalette, palette)
         .alert("Start a shared streak", isPresented: $invite) {
             TextField("Friend’s name", text: $friendName)
             Button("Add demo friend") {
@@ -187,7 +199,7 @@ struct FinPetRoot: View {
                         Image(systemName: item.icon).font(.system(size: 18, weight: .semibold))
                             .frame(width: 54, height: 31)
                             .overlay(alignment: .bottom) {
-                                Capsule().fill(page == item ? forest : .clear).frame(width: 13, height: 2)
+                                Circle().fill(page == item ? palette.accent : .clear).frame(width: 3, height: 3)
                             }
                         Text(item.rawValue).font(.caption.weight(page == item ? .bold : .medium))
                     }
@@ -198,8 +210,8 @@ struct FinPetRoot: View {
             }
         }
         .padding(.vertical, 8)
-        .background(.white)
-        .overlay(alignment: .top) { Rectangle().fill(line).frame(height: 1) }
+        .background(palette.paper)
+        .overlay(alignment: .top) { Rectangle().fill(palette.rule).frame(height: 1) }
     }
 
     private func heading(_ title: String) -> some View {
@@ -256,13 +268,13 @@ struct FinPetRoot: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
                     heading(petName)
-                    Text(mood).font(.subheadline).foregroundStyle(muted)
+                    Text(mood).font(.subheadline.italic()).foregroundStyle(muted)
                 }
                 Button { sheet = .setup } label: {
                     Image(systemName: "slider.horizontal.3").font(.headline)
                         .frame(width: 44, height: 44)
-                        .foregroundStyle(forest)
-                        .overlay { Circle().strokeBorder(line) }
+                        .foregroundStyle(palette.accent)
+                        .background(palette.panel, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Customize mascot")
@@ -270,7 +282,7 @@ struct FinPetRoot: View {
             MascotStage(mascot: pet())
                 .frame(height: mascotHeight)
             VStack(alignment: .leading, spacing: 0) {
-                Text("Challenge of the day").font(.title2.weight(.semibold)).padding(.bottom, 7)
+                Text("Challenge of the day").font(.system(.title2, design: .serif, weight: .semibold)).padding(.bottom, 7)
                 ForEach(Array(dailyLessons.enumerated()), id: \.element.id) { index, lesson in
                     if index > 0 { Divider() }
                     challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", primary: index == 0)
@@ -282,7 +294,7 @@ struct FinPetRoot: View {
             streakBoard
             Divider()
             VStack(alignment: .leading, spacing: 11) {
-                Text("Challenge of the month").font(.title2.weight(.semibold))
+                Text("Challenge of the month").font(.system(.title2, design: .serif, weight: .semibold))
                 monthlyQuest
             }
         }
@@ -301,7 +313,7 @@ struct FinPetRoot: View {
                             Text("\(due.count) due · 3 questions per review").font(.subheadline).foregroundStyle(muted)
                         }
                         Spacer()
-                        Image(systemName: "arrow.clockwise").foregroundStyle(forest)
+                        Image(systemName: "arrow.clockwise").foregroundStyle(palette.accent)
                     }.padding(.vertical, 7).contentShape(Rectangle())
                 }.buttonStyle(.plain)
             } else if let next = queue.first {
@@ -318,7 +330,7 @@ struct FinPetRoot: View {
         let days = practiceDays
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Learning streak", systemImage: "flame.fill").foregroundStyle(forest)
+                Label("Learning streak", systemImage: "flame.fill").foregroundStyle(palette.accent)
                 Spacer()
                 Text("\(streak) \(streak == 1 ? "day" : "days")").foregroundStyle(muted)
             }.font(.subheadline.bold())
@@ -349,7 +361,7 @@ struct FinPetRoot: View {
                 }
                 Spacer()
                 Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(forest)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
             }
             .padding(.vertical, 13).contentShape(Rectangle())
         }.buttonStyle(.plain)
@@ -367,7 +379,7 @@ struct FinPetRoot: View {
             questRow("Get a perfect score on 2 lessons", perfectLessons, 2)
             questRow("Complete 25 questions", exercises, 25)
             Button("Browse lessons") { page = .learn }
-                .font(.subheadline.weight(.semibold)).foregroundStyle(forest)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
                 .padding(.vertical, 6)
         }
     }
@@ -379,7 +391,7 @@ struct FinPetRoot: View {
                 Spacer()
                 Text("\(min(value, target))/\(target)").bold()
             }.font(.footnote)
-            Meter(progress: Double(value) / Double(target), background: mint)
+            Meter(progress: Double(value) / Double(target), background: palette.panel)
         }
     }
 
@@ -411,7 +423,7 @@ struct FinPetRoot: View {
                         .font(.subheadline.monospacedDigit()).foregroundStyle(muted)
                         .accessibilityLabel("\(count) of \(unit.lessons.count) lessons completed")
                 }
-                Meter(progress: Double(count) / Double(unit.lessons.count), background: mint)
+                Meter(progress: Double(count) / Double(unit.lessons.count), background: palette.panel)
             }
             .padding(.top, 12)
             VStack(alignment: .leading, spacing: 0) {
@@ -439,7 +451,7 @@ struct FinPetRoot: View {
                     .accessibilityHint(done ? "Review completed lesson" : "Open lesson")
                 }
             }.background(alignment: .leading) {
-                Rectangle().fill(line).frame(width: 1).padding(.leading, 13).padding(.vertical, 24)
+                Rectangle().fill(palette.rule).frame(width: 1).padding(.leading, 13).padding(.vertical, 24)
             }
             Divider()
         }
@@ -448,10 +460,10 @@ struct FinPetRoot: View {
     private func pathNode(done: Bool, current: Bool) -> some View {
         Image(systemName: done ? "checkmark" : (current ? "book.closed" : "circle.fill"))
             .font(.system(size: done || current ? 11 : 4, weight: .semibold))
-            .foregroundStyle(current ? .white : forest)
+            .foregroundStyle(current ? .white : palette.accent)
             .frame(width: 27, height: 27)
-            .background(current ? forest : (done ? mint : cream), in: Circle())
-            .overlay { Circle().strokeBorder(current ? .clear : line) }
+            .background(current ? palette.accent : (done ? palette.panel : palette.paper), in: Circle())
+            .overlay { Circle().strokeBorder(current ? .clear : palette.rule) }
             .accessibilityHidden(true)
     }
 
@@ -465,7 +477,7 @@ struct FinPetRoot: View {
             HStack {
                 heading("Friends")
                 Button("Invite") { invite = true }
-                    .font(.headline).foregroundStyle(forest).petCard(radius: 14)
+                    .font(.headline).foregroundStyle(palette.accent).petCard(radius: 14)
             }
             Label {
                 Text("Share your practice streak and check-ins with friends.")

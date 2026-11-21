@@ -2,8 +2,10 @@ import SwiftUI
 import PhotosUI
 
 struct MascotEditor: View {
+    @Environment(\.mascotPalette) private var palette
     @Binding var name: String
     @Binding var color: PetColor
+    @Binding var matchAvatarPalette: Bool
     @Binding var personality: String
     @Binding var photo: Data
     let close: () -> Void
@@ -42,21 +44,19 @@ struct MascotEditor: View {
                     Text("“\(sample)”").font(.subheadline).foregroundStyle(muted).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(16)
-                .background(photo.isEmpty || color == .leaf
-                            ? (library.activeBackground ?? mint) : color.fill.opacity(0.30),
-                            in: RoundedRectangle(cornerRadius: 22))
+                .background(palette.stage, in: RoundedRectangle(cornerRadius: 16))
                 .clipShape(RoundedRectangle(cornerRadius: 22))
                 controls
             }.padding(20)
         }
-        .foregroundStyle(ink).background(cream.ignoresSafeArea())
+        .foregroundStyle(ink).background(palette.paper.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             ActionButton(title: "Done") {
                 editingName = false
                 name = petName
                 close()
-            }.padding(.horizontal, 20).padding(.vertical, 8).background(cream)
+            }.padding(.horizontal, 20).padding(.vertical, 8).background(palette.paper)
         }
         .task(id: selection) {
             guard let selection else { return }
@@ -134,15 +134,25 @@ struct MascotEditor: View {
             if let id = library.activeID { animationsCard(id) }
             if !library.entries.isEmpty { avatarPicker }
             fieldLabel(photo.isEmpty ? "Mascot colour" : "Backdrop colour")
+            if !photo.isEmpty {
+                Button {
+                    matchAvatarPalette = true
+                } label: {
+                    Label("Match mascot", systemImage: matchAvatarPalette ? "checkmark.circle.fill" : "circle")
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
+                }
+            }
             HStack {
                 ForEach(PetColor.allCases, id: \.self) { item in
                     Button {
                         color = item
+                        if !photo.isEmpty { matchAvatarPalette = false }
                     } label: {
+                        let selected = color == item && (photo.isEmpty || !matchAvatarPalette)
                         VStack(spacing: 5) {
                             Circle().fill(item.fill).frame(width: 31, height: 31).padding(3)
-                                .overlay { Circle().strokeBorder(color == item ? ink : line, lineWidth: 2) }
-                            Text(item.rawValue).font(.caption.weight(color == item ? .bold : .regular))
+                                .overlay { Circle().strokeBorder(selected ? ink : line, lineWidth: 2) }
+                            Text(item.rawValue).font(.caption.weight(selected ? .bold : .regular))
                         }.frame(maxWidth: .infinity)
                     }.buttonStyle(.plain)
                 }
