@@ -33,6 +33,7 @@ struct FinPetRoot: View {
     @AppStorage("finpet.education.attempts") private var attemptData = Data()
     @AppStorage("finpet.ref.checkins") private var checkins = ""
     @AppStorage("finpet.ref.friends") private var extraFriends = ""
+    @EnvironmentObject private var auth: AuthSession
     @Environment(\.scenePhase) private var scenePhase
     @State private var day = Date()
     @State private var page: Page = .home
@@ -393,6 +394,8 @@ struct FinPetRoot: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 heading("Friends")
+                Button("Log out") { auth.logOut() }
+                    .font(.headline).foregroundStyle(muted).petCard(radius: 14)
                 Button("Invite") { invite = true }
                     .font(.headline).foregroundStyle(forest).petCard(radius: 14)
             }
