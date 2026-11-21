@@ -132,7 +132,7 @@ struct FinPetRoot: View {
     private func home(mascotHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             heading(petName, streak: true)
-            MascotStage().frame(height: mascotHeight)
+            MascotStage(mascot: pet()).frame(height: mascotHeight)
             HStack(alignment: .center, spacing: 16) {
                 Text("$58").font(.system(size: 37, weight: .heavy))
                 VStack(alignment: .leading, spacing: 4) {

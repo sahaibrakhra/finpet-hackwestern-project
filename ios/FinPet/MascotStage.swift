@@ -1,19 +1,34 @@
 import SwiftUI
 
 struct MascotStage: View {
+    let mascot: Pet
+
     var body: some View {
-        // Mount the animated avatar here. Home owns the stage size.
-        ZStack {
-            RoundedRectangle(cornerRadius: 25).fill(mint)
-            RoundedRectangle(cornerRadius: 25)
-                .strokeBorder(forest.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-            VStack(spacing: 10) {
-                Image(systemName: "leaf").font(.system(size: 34, weight: .medium))
+        GeometryReader { stage in
+            let height = stage.size.height
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 25).fill(mint)
+                Circle()
+                    .fill(.white.opacity(0.32))
+                    .frame(width: height * 0.66)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, -height * 0.13)
+                    .padding(.trailing, -height * 0.12)
                     .accessibilityHidden(true)
-                Text("Mascot preview").font(.subheadline.weight(.semibold))
+
+                UnevenRoundedRectangle(topLeadingRadius: 32, bottomLeadingRadius: 25,
+                                       bottomTrailingRadius: 25, topTrailingRadius: 32)
+                    .fill(forest.opacity(0.10))
+                    .frame(height: height * 0.24)
+                    .accessibilityHidden(true)
+
+                mascot
+                    .frame(width: min(stage.size.width * 0.78, height * 0.81),
+                           height: height * 0.81)
+                    .padding(.bottom, height * 0.08)
             }
-            .foregroundStyle(forest)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 25))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

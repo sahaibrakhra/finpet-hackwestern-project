@@ -64,6 +64,7 @@ enum PetColor: String, CaseIterable {
     }
 }
 
+// Shared avatar for Home, Money, lessons, customization, and Friends.
 struct Pet: View {
     let color: PetColor
     var accessory = "Scarf"
@@ -78,6 +79,7 @@ struct Pet: View {
                         .frame(width: proxy.size.width, height: proxy.size.height).clipShape(Circle())
                 }
             } else {
+                // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
                     var ctx = ctx
                     ctx.scaleBy(x: size.width / 120, y: size.height / 120)
