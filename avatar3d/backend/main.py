@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -41,6 +42,13 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 THIRD_PARTY_WARNING = "Your photo is sent to a third-party public Space."
 
+
+def _third_party_warning() -> str:
+    backend = getattr(getattr(provider, "backend", None), "name", None)
+    if backend == "veo":
+        return "Your photo is sent to Google (Gemini / Veo) to generate the sprite and video clips."
+    return THIRD_PARTY_WARNING
+
 store = JobStore(STORAGE / "jobs.json")
 executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pipeline")
 
@@ -72,6 +80,8 @@ app = FastAPI(title="avatar3d", lifespan=lifespan)
 
 
 def _model_url(job_id: str) -> str:
+    if (MODELS / f"{job_id}.json").exists():  # 2D video avatar
+        return f"/api/models/{job_id}.json"
     return f"/api/models/{job_id}.glb"
 
 
@@ -86,12 +96,14 @@ def get_config():
     return {
         "provider": provider.name if provider else os.getenv("PROVIDER", "mock"),
         "third_party": third_party,
-        "warning": THIRD_PARTY_WARNING if third_party else None,
+        "warning": _third_party_warning() if third_party else None,
         "stylize_enabled": pipeline.stylize_enabled(),
         "rembg_enabled": pipeline.rembg_enabled(),
         "rig_enabled": pipeline.rig_enabled(),
         "parts_labels": True,
-        "avatar_style": "2d" if provider is not None and provider.name == "sprite2d" else "3d",
+        "avatar_style": ("video2d" if provider is not None and provider.name == "video2d"
+                         else "2d" if provider is not None and provider.name == "sprite2d" else "3d"),
+        "video_backend": getattr(getattr(provider, "backend", None), "name", None),
         "optional_steps": {"rembg": pipeline.rembg_enabled(), "stylize": pipeline.stylize_enabled(), "rig": pipeline.rig_enabled()},
         "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
         "provider_error": provider_error,
@@ -144,7 +156,10 @@ async def create_avatar(photo: UploadFile = File(...), parts: str | None = Form(
     thumb.save(UPLOADS / f"{job_id}_thumb.jpg", "JPEG", quality=85)
     store.update(job_id, has_thumbnail=True)
 
-    executor.submit(pipeline.run_pipeline, store, job_id, path, provider, MODELS, parts_dict)
+    if hasattr(provider, "pipeline"):  # providers with their own pipeline (video2d)
+        executor.submit(provider.pipeline, store, job_id, path, MODELS, parts_dict)
+    else:
+        executor.submit(pipeline.run_pipeline, store, job_id, path, provider, MODELS, parts_dict)
     log.info("job %s queued (%s, %d bytes)", job_id, provider.name, len(data))
     return {"job_id": job_id}
 
@@ -167,6 +182,13 @@ def get_job(job_id: str):
 
 @app.get("/api/models/{filename}")
 def get_model(filename: str):
+    if filename.endswith(".json"):  # 2D video avatar manifest
+        model_id = filename[:-5]
+        _check_id(model_id)
+        path = MODELS / f"{model_id}.json"
+        if not path.exists():
+            raise HTTPException(404, "Model not found.")
+        return FileResponse(path, media_type="application/json", headers={"Cache-Control": "no-store"})
     if not filename.endswith(".glb"):
         raise HTTPException(404, "Model not found.")
     model_id = filename[:-4]
@@ -175,6 +197,22 @@ def get_model(filename: str):
     if not path.exists():
         raise HTTPException(404, "Model not found.")
     return FileResponse(path, media_type="model/gltf-binary", filename=filename)
+
+
+PUPPET_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+PUPPET_TYPES = {".webm": "video/webm", ".png": "image/png", ".mp4": "video/mp4"}
+
+
+@app.get("/api/puppets/{avatar_id}/{filename}")
+def get_puppet_file(avatar_id: str, filename: str):
+    _check_id(avatar_id)
+    ext = Path(filename).suffix.lower()
+    if not PUPPET_FILE_RE.match(filename) or ext not in PUPPET_TYPES:
+        raise HTTPException(404, "File not found.")
+    path = MODELS / f"{avatar_id}_puppet" / filename
+    if not path.exists():
+        raise HTTPException(404, "File not found.")
+    return FileResponse(path, media_type=PUPPET_TYPES[ext])
 
 
 @app.get("/api/thumbnails/{filename}")
@@ -192,7 +230,7 @@ def get_thumbnail(filename: str):
 def list_avatars():
     out = []
     for j in store.list_done():
-        if not (MODELS / f"{j['id']}.glb").exists():
+        if not ((MODELS / f"{j['id']}.glb").exists() or (MODELS / f"{j['id']}.json").exists()):
             continue
         has_thumb = (UPLOADS / f"{j['id']}_thumb.jpg").exists()
         out.append({
@@ -214,6 +252,8 @@ def delete_avatar(avatar_id: str):
     if job["status"] not in ("done", "error"):
         raise HTTPException(409, "That avatar is still being generated.")
     (MODELS / f"{avatar_id}.glb").unlink(missing_ok=True)
+    (MODELS / f"{avatar_id}.json").unlink(missing_ok=True)
+    shutil.rmtree(MODELS / f"{avatar_id}_puppet", ignore_errors=True)
     for f in UPLOADS.glob(f"{avatar_id}*"):
         f.unlink(missing_ok=True)
     store.delete(avatar_id)

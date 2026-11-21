@@ -87,6 +87,10 @@
 
     <section id="viewerWrap">
       <canvas id="viewer"></canvas>
+      <div id="videoStage" hidden>
+        <video id="vidIdle" muted loop playsinline preload="auto"></video>
+        <video id="vidAction" muted playsinline preload="auto" hidden></video>
+      </div>
       <div id="viewerMsg">Generate an avatar or open a GLB</div>
     </section>
   </main>

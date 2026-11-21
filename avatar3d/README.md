@@ -148,3 +148,23 @@ Instead of generating a 3D model, the photo's cut-out becomes a flat, textured 2
 Tips: marking the body parts matters most for 2D, especially for arms hanging against the torso, where the
 automatic guess is unreliable. `SPRITE_ROWS` (default 110) trades smoothness for file size.
 Set `PROVIDER=hf_space` (or another provider) in `.env` to go back to 3D generation.
+
+## 2D video avatar mode (`PROVIDER=video2d`)
+
+No rig and no mesh. The character becomes a sprite and AI-generated video clips animate it:
+
+1. Background removal gives a cut-out. If `GEMINI_API_KEY` is set, Gemini redraws it as a clean front-facing sprite.
+2. The sprite is placed on a solid key-colour background (green, blue or magenta, whichever is farthest from the
+   character's own colours, so keying never eats the character) and used as the first and last frame of each clip.
+3. A video backend makes three clips: an **idle** loop (finishes the job), then **wave** and **dance** in the
+   background. Clips start and end on the sprite pose, so they chain back into idle.
+4. ffmpeg (bundled via `imageio-ffmpeg`) keys the background into transparent VP9 WebM. The viewer plays idle on
+   loop and plays wave/dance on click, then returns to idle. Buttons enable as each clip finishes.
+
+Backends (`VIDEO_BACKEND`): `mock` (offline demo clips from the sprite, for testing), `veo` (Google Veo via the
+Gemini API, paid), `hf_wan` (a public Hugging Face Wan Space, free but its ZeroGPU quota is tiny). `auto` picks
+`veo` when `GEMINI_API_KEY` is set and `mock` otherwise.
+
+**Getting a Gemini API key:** open https://aistudio.google.com/apikey, sign in, click **Create API key**, and put it
+in `.env` as `GEMINI_API_KEY=...`. Veo generally needs billing enabled on the key's project (a paid plan); check
+Google's current pricing and model list, and set `VEO_MODEL` if the default model is unavailable to you.

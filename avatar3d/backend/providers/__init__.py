@@ -13,6 +13,9 @@ def get_provider(name: str | None = None) -> Provider:
     if name == "mock":
         from .mock import MockProvider
         return MockProvider()
+    if name == "video2d":
+        from .video2d import Video2DProvider
+        return Video2DProvider()
     if name == "sprite2d":
         from .sprite2d import Sprite2DProvider
         return Sprite2DProvider()
@@ -25,4 +28,4 @@ def get_provider(name: str | None = None) -> Provider:
     if name == "local_gpu":
         from .local_gpu import LocalGpuProvider
         return LocalGpuProvider()
-    raise ValueError(f"Unknown PROVIDER '{name}'. Use sprite2d, mock, hf_space, hf_rigged or local_gpu.")
+    raise ValueError(f"Unknown PROVIDER '{name}'. Use video2d, sprite2d, mock, hf_space, hf_rigged or local_gpu.")

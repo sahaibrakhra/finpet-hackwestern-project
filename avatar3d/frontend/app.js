@@ -87,6 +87,7 @@ let phaseB = 0, phaseS = 0, bobPhase = 0; // accumulated phases (so slider chang
 let current = { id: null, url: null, name: 'avatar.glb', blobUrl: null };
 
 function disposeCurrent() {
+  stopPuppet();
   if (mixer) { mixer.stopAllAction(); mixer = null; }
   idleAction = null; busyAction = null;
   if (el.clipBtns) { el.clipBtns.innerHTML = ''; el.clipBtns.hidden = true; }
@@ -253,7 +254,114 @@ function loadFromBuffer(buf, name) {
   });
 }
 
+
+// ---------------------------------------------------------------- 2D video avatar (manifest + alpha WebM clips)
+const vid = { stage: $('videoStage'), idle: $('vidIdle'), action: $('vidAction') };
+let videoMode = false;
+let puppetPoll = null;
+let puppetBusy = false;
+let puppetManifest = null;
+
+function stopPuppet() {
+  if (puppetPoll) { clearTimeout(puppetPoll); puppetPoll = null; }
+  videoMode = false;
+  puppetBusy = false;
+  puppetManifest = null;
+  if (!vid.stage) return;
+  for (const v of [vid.idle, vid.action]) { v.pause(); v.removeAttribute('src'); v.load(); }
+  vid.action.hidden = true;
+  vid.idle.style.visibility = 'visible';
+  vid.stage.hidden = true;
+  el.canvas.style.visibility = 'visible';
+  el.swayRange.closest('label').hidden = false;
+  el.speedRange.closest('label').hidden = false;
+}
+
+function clipLabel(n) { return n[0].toUpperCase() + n.slice(1); }
+
+function renderPuppetButtons(m) {
+  const names = Object.keys(m.clips).filter((n) => n !== 'idle');
+  for (const n of names) {
+    let b = el.clipBtns.querySelector(`button[data-clip="${n}"]`);
+    if (!b) {
+      b = document.createElement('button');
+      b.dataset.clip = n;
+      b.addEventListener('click', () => playPuppetClip(n));
+      el.clipBtns.appendChild(b);
+    }
+    const c = m.clips[n];
+    b.disabled = puppetBusy || c.state !== 'ready';
+    b.textContent = c.state === 'pending' ? `${clipLabel(n)}…` : c.state === 'error' ? `${clipLabel(n)} ✕` : clipLabel(n);
+    b.title = c.state === 'pending' ? 'Still generating' : c.state === 'error' ? (c.message || 'Generation failed') : '';
+  }
+  el.clipBtns.hidden = !names.length;
+  const pending = names.filter((n) => m.clips[n].state === 'pending');
+  el.animInfo.textContent = pending.length ? `AI video (${m.backend}) — generating ${pending.map(clipLabel).join(', ')}…` : `AI video (${m.backend})`;
+}
+
+async function pollPuppet(url, id) {
+  if (!videoMode || !puppetManifest || puppetManifest.id !== id) return;
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (r.ok) {
+      puppetManifest = await r.json();
+      renderPuppetButtons(puppetManifest);
+    }
+  } catch { /* keep polling */ }
+  if (videoMode && puppetManifest && Object.values(puppetManifest.clips).some((c) => c.state === 'pending')) {
+    puppetPoll = setTimeout(() => pollPuppet(url, id), 3000);
+  }
+}
+
+async function loadPuppet(url, name) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Could not download the avatar (HTTP ${r.status})`);
+  const m = await r.json();
+  if (m.type !== 'video2d' || !m.clips?.idle) throw new Error('Unsupported avatar file.');
+  disposeCurrent();
+  videoMode = true;
+  puppetManifest = m;
+  el.canvas.style.visibility = 'hidden';
+  vid.stage.hidden = false;
+  el.swayRange.closest('label').hidden = true;
+  el.speedRange.closest('label').hidden = true;
+  const idle = m.clips.idle;
+  if (idle.state !== 'ready' || !idle.url) throw new Error(idle.message || 'The idle clip is not ready yet.');
+  vid.idle.poster = m.sprite || '';
+  vid.idle.src = idle.url;
+  vid.idle.play().catch(() => {});
+  renderPuppetButtons(m);
+  el.viewerMsg.classList.add('hidden');
+  el.downloadBtn.disabled = !m.sprite;
+  if (m.sprite) { current.url = m.sprite; current.name = 'sprite.png'; }
+  el.modelMsg.textContent = name;
+  if (Object.values(m.clips).some((c) => c.state === 'pending')) puppetPoll = setTimeout(() => pollPuppet(url, m.id), 3000);
+}
+
+function playPuppetClip(n) {
+  const c = puppetManifest?.clips?.[n];
+  if (!videoMode || puppetBusy || !c || c.state !== 'ready') return;
+  puppetBusy = true;
+  renderPuppetButtons(puppetManifest);
+  if (paused) { paused = false; el.pauseBtn.textContent = 'Pause'; vid.idle.play().catch(() => {}); }
+  vid.action.src = c.url;
+  vid.action.currentTime = 0;
+  vid.action.hidden = false;
+  vid.idle.style.visibility = 'hidden';
+  vid.action.onended = () => {
+    vid.action.hidden = true;
+    vid.idle.currentTime = 0;
+    vid.idle.style.visibility = 'visible';
+    vid.idle.play().catch(() => {});
+    puppetBusy = false;
+    if (puppetManifest) renderPuppetButtons(puppetManifest);
+  };
+  vid.action.onerror = () => { vid.action.onended(); };
+  vid.action.play().catch(() => vid.action.onended());
+}
+
 async function loadFromUrl(url, name) {
+  if (url.split('?')[0].endsWith('.json')) return loadPuppet(url, name);
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Could not download model (HTTP ${r.status})`);
   await loadFromBuffer(await r.arrayBuffer(), name);
@@ -291,6 +399,11 @@ tick();
 el.pauseBtn.addEventListener('click', () => {
   paused = !paused;
   el.pauseBtn.textContent = paused ? 'Play' : 'Pause';
+  if (videoMode) {
+    for (const v of [vid.idle, vid.action]) {
+      if (paused) v.pause(); else if (!v.hidden && v.getAttribute('src')) v.play().catch(() => {});
+    }
+  }
 });
 
 // ---------------------------------------------------------------- config
@@ -300,6 +413,8 @@ async function loadConfig() {
     const provider = cfg.provider || cfg.active_provider || 'unknown';
     el.providerBadge.textContent = `provider: ${provider}`;
     el.warnBanner.hidden = !(cfg.third_party ?? provider === 'hf_space');
+    if (cfg.warning) el.warnBanner.textContent = cfg.warning;
+    if (cfg.avatar_style === 'video2d') { partsEnabled = false; partsEl.row.hidden = true; }
     const stylize = cfg.stylize ?? cfg.stylize_enabled ?? cfg.optional_steps?.stylize ?? cfg.optional_steps?.stylize_enabled;
     el.stylizeBadge.hidden = !stylize;
   } catch {
@@ -324,7 +439,7 @@ function setFile(file) {
   el.dropHint.hidden = true;
   el.generateBtn.disabled = false;
   setPartsData(null);
-  partsEl.row.hidden = false;
+  partsEl.row.hidden = !partsEnabled;
 }
 
 
@@ -341,6 +456,7 @@ const partsEl = {
   row: $('partsRow'), info: $('partsInfo'), markBtn: $('markBtn'), modal: $('partsModal'), stage: $('partsStage'),
   img: $('partsImg'), reset: $('partsReset'), clear: $('partsClear'), cancel: $('partsCancel'), apply: $('partsApply'),
 };
+let partsEnabled = true;  // the 2D video mode has no rig, so body-part marking is hidden there
 let partsData = null;   // applied boxes (normalised 0..1 on the photo) or null = auto-detect
 let partsDraft = {};
 
@@ -523,7 +639,7 @@ async function poll(jobId, token, failures) {
   }
 }
 
-function idFromUrl(u) { return (u.match(/\/([^/]+)\.glb/) || [])[1] || null; }
+function idFromUrl(u) { return (u.match(/\/([^/]+)\.(?:glb|json)/) || [])[1] || null; }
 
 el.generateBtn.addEventListener('click', startJob);
 el.retryBtn.addEventListener('click', startJob);
