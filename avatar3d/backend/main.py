@@ -5,6 +5,7 @@ Run from avatar3d\\backend:  uvicorn main:app --port 8000
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -14,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -89,14 +90,37 @@ def get_config():
         "stylize_enabled": pipeline.stylize_enabled(),
         "rembg_enabled": pipeline.rembg_enabled(),
         "rig_enabled": pipeline.rig_enabled(),
+        "parts_labels": True,
         "optional_steps": {"rembg": pipeline.rembg_enabled(), "stylize": pipeline.stylize_enabled(), "rig": pipeline.rig_enabled()},
         "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
         "provider_error": provider_error,
     }
 
 
+PART_KEYS = ("head", "torso", "left_arm", "right_arm", "left_leg", "right_leg")
+
+
+def _parse_parts(raw: str | None) -> dict | None:
+    """Optional body-part boxes: {"head": [x0, y0, x1, y1], ...}, normalised 0..1 on the photo."""
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        out = {}
+        for k, b in data.items():
+            if k not in PART_KEYS:
+                raise ValueError(k)
+            x0, y0, x1, y1 = (float(n) for n in b)
+            if not (0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1):
+                raise ValueError(k)
+            out[k] = [x0, y0, x1, y1]
+        return out or None
+    except (ValueError, TypeError, AttributeError) as e:
+        raise HTTPException(400, "The body-part labels are not valid. Skip that step or redraw the boxes.") from e
+
+
 @app.post("/api/avatars")
-async def create_avatar(photo: UploadFile = File(...)):
+async def create_avatar(photo: UploadFile = File(...), parts: str | None = Form(None)):
     if provider is None:
         raise HTTPException(500, f"Provider is misconfigured: {provider_error}")
     data = await photo.read(MAX_UPLOAD_BYTES + 1)
@@ -109,6 +133,7 @@ async def create_avatar(photo: UploadFile = File(...)):
     except pipeline.BadImage as e:
         raise HTTPException(415, str(e)) from e
 
+    parts_dict = _parse_parts(parts)
     job = store.create(provider.name, uuid.uuid4().hex[:12])
     job_id = job["id"]
     path = UPLOADS / f"{job_id}.png"
@@ -118,7 +143,7 @@ async def create_avatar(photo: UploadFile = File(...)):
     thumb.save(UPLOADS / f"{job_id}_thumb.jpg", "JPEG", quality=85)
     store.update(job_id, has_thumbnail=True)
 
-    executor.submit(pipeline.run_pipeline, store, job_id, path, provider, MODELS)
+    executor.submit(pipeline.run_pipeline, store, job_id, path, provider, MODELS, parts_dict)
     log.info("job %s queued (%s, %d bytes)", job_id, provider.name, len(data))
     return {"job_id": job_id}
 

@@ -38,10 +38,81 @@ def _median_filter(a: np.ndarray, k: int = 5) -> np.ndarray:
     return np.array([np.median(p[i:i + k]) for i in range(len(a))])
 
 
+
+PART_KEYS = ("head", "torso", "left_arm", "right_arm", "left_leg", "right_leg")
+
+
+def parts_to_hints(parts: dict, image_path: Path, allv: np.ndarray) -> dict:
+    """Convert user-drawn boxes (normalised 0..1 on the photo) into mesh-space hints for the rig.
+
+    The mesh is mapped to the photo exactly like colorize.py does (front projection of the subject's
+    bounding box), so a box on the photo becomes a box in the mesh's x/y plane.
+    """
+    from PIL import Image
+
+    img = Image.open(image_path).convert("RGBA")
+    W, Hh = img.size
+    alpha = np.asarray(img)[..., 3]
+    ys, xs = np.nonzero(alpha > 16)
+    if len(xs) < 50:
+        x0, x1, y0, y1 = 0, W - 1, 0, Hh - 1
+    else:
+        x0, x1, y0, y1 = int(xs.min()), int(xs.max()), int(ys.min()), int(ys.max())
+    w, h = x1 - x0 + 1, y1 - y0 + 1
+    lo, hi = allv.min(0), allv.max(0)
+    span = np.maximum(hi - lo, 1e-9)
+    mesh_aspect, img_aspect = span[0] / span[1], w / h
+    fx = img_aspect / mesh_aspect if mesh_aspect > img_aspect else 1.0
+    fy = mesh_aspect / img_aspect if mesh_aspect < img_aspect else 1.0
+
+    def to_mesh(nx: float, ny: float):
+        u = 0.5 + (((nx * W) - x0) / w - 0.5) * fx
+        t = 0.5 + (((ny * Hh) - y0) / h - 0.5) * fy
+        return lo[0] + u * span[0], lo[1] + (1 - t) * span[1]
+
+    boxes = {}
+    for k in PART_KEYS:
+        b = parts.get(k)
+        if not b:
+            continue
+        ax, ay = to_mesh(b[0], b[1])
+        bx, by = to_mesh(b[2], b[3])
+        boxes[k] = (min(ax, bx), max(ax, bx), min(ay, by), max(ay, by))  # x0, x1, ymin, ymax
+
+    def pair(a, b):
+        """Assign left/right by actual position: the box further along +X is the character's left (faces +Z)."""
+        got = [(boxes[k][0] + boxes[k][1]) / 2 for k in (a, b) if k in boxes]
+        out = {}
+        items = [(k, boxes[k]) for k in (a, b) if k in boxes]
+        items.sort(key=lambda kv: -(kv[1][0] + kv[1][1]) / 2)
+        if len(items) == 2:
+            out["Left"], out["Right"] = items[0][1], items[1][1]
+        elif len(items) == 1:
+            c = (items[0][1][0] + items[0][1][1]) / 2
+            out["Left" if c >= (lo[0] + hi[0]) / 2 else "Right"] = items[0][1]
+        return out
+
+    hints = {"arm_boxes": pair("left_arm", "right_arm"), "leg_boxes": pair("left_leg", "right_leg"),
+             "head_box": boxes.get("head"), "y_c": None, "y_neck": None}
+    leg_tops = [b[3] for b in hints["leg_boxes"].values()]
+    if "torso" in boxes and leg_tops:
+        hints["y_c"] = (boxes["torso"][2] + float(np.mean(leg_tops))) / 2
+    elif "torso" in boxes:
+        hints["y_c"] = boxes["torso"][2]
+    elif leg_tops:
+        hints["y_c"] = float(np.mean(leg_tops))
+    if "head" in boxes:
+        hints["y_neck"] = boxes["head"][2]
+    elif "torso" in boxes:
+        hints["y_neck"] = boxes["torso"][3]
+    return hints
+
+
 class Layout:
     """Measurements of the mesh that both the skeleton and the skin weights are derived from."""
 
-    def __init__(self, v: np.ndarray):
+    def __init__(self, v: np.ndarray, hints: dict | None = None):
+        hints = hints or {}
         self.lo, self.hi = v.min(axis=0), v.max(axis=0)
         self.H = float(self.hi[1] - self.lo[1])
         if self.H <= 1e-6:
@@ -70,6 +141,9 @@ class Layout:
         self.legs_confident = y_c is not None   # a real gap between the legs was seen
         self.has_legs = True                    # otherwise assume legs below ~42% height, split down the middle
         self.y_c = y_c if y_c is not None else self.ymin + 0.42 * H
+        if hints.get("y_c") is not None:  # user-marked body parts win over the guess
+            self.y_c = float(np.clip(hints["y_c"], self.ymin + 0.1 * H, self.ymax - 0.2 * H))
+            self.legs_confident = True
         U = self.ymax - self.y_c  # height of the upper body (torso + head)
         self.U = U
 
@@ -98,6 +172,8 @@ class Layout:
         else:
             self.y_neck = self.y_c + 0.78 * U
         self.y_neck = float(np.clip(self.y_neck, self.y_c + 0.3 * U, self.ymax - 0.1 * U))
+        if hints.get("y_neck") is not None:
+            self.y_neck = float(np.clip(hints["y_neck"], self.y_c + 0.2 * (self.ymax - self.y_c), self.ymax - 0.03 * H))
         self.Ut = self.y_neck - self.y_c  # torso height
 
         # --- torso half-width (used for hip/shoulder placement)
@@ -111,6 +187,7 @@ class Layout:
         cand = band & (ax > core)
         self.arm_mask = {}
         self.arm_pts = {}
+        self.arm_from_labels = set()
         for side, sign in (("Left", 1), ("Right", -1)):
             m = cand & ((v[:, 0] - self.cx) * sign > 0)
             self.arm_mask[side] = m
@@ -148,6 +225,29 @@ class Layout:
                         self.arm_pts[side] = v[m]
                         self.arms_inferred = True
 
+        # user-marked arm boxes override whatever was auto-detected
+        for side, (bx0, bx1, by0, by1) in hints.get("arm_boxes", {}).items():
+            m = (v[:, 0] >= bx0) & (v[:, 0] <= bx1) & (v[:, 1] >= by0) & (v[:, 1] <= by1)
+            hb = hints.get("head_box")
+            if hb is not None:  # where boxes overlap, the head wins
+                m &= ~((v[:, 0] >= hb[0]) & (v[:, 0] <= hb[1]) & (v[:, 1] >= hb[2]) & (v[:, 1] <= hb[3]))
+            if m.sum() >= 20:
+                # Boxes are loose: keep only vertices close to the arm's own centre line, so neighbouring
+                # geometry that merely falls inside the box (ears, hair, a hip) is not dragged along.
+                xy = v[m][:, :2]
+                c = xy.mean(axis=0)
+                axis = np.linalg.svd(xy - c, full_matrices=False)[2][0]
+                perp = np.abs((xy - c) @ np.array([-axis[1], axis[0]]))
+                keep = perp <= max(2.5 * float(np.percentile(perp, 60)), 0.015 * H)
+                idx = np.nonzero(m)[0]
+                m2 = np.zeros_like(m)
+                m2[idx[keep]] = True
+                if m2.sum() >= 20:
+                    m = m2
+                self.arm_mask[side] = m
+                self.arm_pts[side] = v[m]
+                self.arm_from_labels.add(side)
+
         # --- leg centre lines (x of each leg at a few heights), for the hip / knee / ankle joints
         self.leg_x = {}
         Ll = self.y_c - self.ymin
@@ -158,11 +258,18 @@ class Layout:
                 m = (np.abs(v[:, 1] - yy) < 0.06 * Ll + 0.01 * H) & ((v[:, 0] - self.cx) * sign > gap * 0.5)
                 xs.append(float(v[m, 0].mean() - self.cx) if m.sum() > 5 else sign * max(0.35 * self.torso_hw, 0.04 * H))
             self.leg_x[side] = xs
+        self.cx_legs = self.cx
+        lb = hints.get("leg_boxes", {})
+        for side, (bx0, bx1, _, _) in lb.items():
+            c = (bx0 + bx1) / 2 - self.cx
+            self.leg_x[side] = [c, c, c]
+        if len(lb) == 2:
+            self.cx_legs = float(np.mean([(b[0] + b[1]) / 2 for b in lb.values()]))
 
 
-def fit_skeleton(v: np.ndarray):
+def fit_skeleton(v: np.ndarray, hints: dict | None = None):
     """Return (joints, layout). joints = [(name, parent_index (-1 = root), world_position)]."""
-    L = Layout(v)
+    L = Layout(v, hints)
     H, cx, cz = L.H, L.cx, L.cz
 
     def P(x, y, z=0.0):
@@ -185,6 +292,31 @@ def fit_skeleton(v: np.ndarray):
         if pts is not None:
             L.arm_found[side] = True
             top = pts[:, 1].max()
+            if side in L.arm_from_labels:
+                # Marked by the user: the box may be loose, so use the arm's own principal direction.
+                xy = pts[:, :2]
+                c = xy.mean(axis=0)
+                axis = np.linalg.svd(xy - c, full_matrices=False)[2][0]
+                if abs(axis[0]) >= abs(axis[1]):      # mostly horizontal (held out): point away from the body
+                    if axis[0] * sign < 0:
+                        axis = -axis
+                elif axis[1] > 0:                     # mostly vertical (hanging): point downward
+                    axis = -axis
+                proj = (xy - c) @ axis
+                k = max(5, int(0.1 * len(proj)))
+                order = np.argsort(proj)
+                near, far = xy[order[:k]].mean(axis=0), xy[order[-k:]].mean(axis=0)
+                a = near - axis * 0.02 * H            # put the shoulder slightly inside the body
+                sh = np.array([a[0], a[1], cz])
+                wr = np.array([far[0], far[1], cz])
+                el = (sh + wr) / 2
+                end = wr + (wr - sh) * 0.15
+                base = len(joints)
+                joints += [
+                    (f"{side}UpperArm", 2, sh), (f"{side}LowerArm", base, el),
+                    (f"{side}Hand", base + 1, wr), (f"{side}HandEnd", base + 2, end),
+                ]
+                continue
             sh = P(sign * (np.abs(pts[:, 0] - cx).min() + 0.005 * H), min(top, sh_y + 0.05 * H))
             low = pts[pts[:, 1] <= np.percentile(pts[:, 1], 12)]
             wr = np.array([low[:, 0].mean(), low[:, 1].mean(), cz])
@@ -274,7 +406,7 @@ def skin_weights(v: np.ndarray, joints, L: Layout, max_influences: int = 4):
     leg = np.zeros((N, n))
     if L.has_legs:
         for side, sign in (("Left", 1), ("Right", -1)):
-            side_w = _smooth((sign * (v[:, 0] - cx)) / (0.02 * H) + 0.5)
+            side_w = _smooth((sign * (v[:, 0] - L.cx_legs)) / (0.02 * H) + 0.5)
             kn, an = pos[f"{side}LowerLeg"][1], pos[f"{side}Foot"][1]
             lw = _chain(-y, [-kn, -an], bl_l)  # UpperLeg | LowerLeg | Foot
             for col, name in enumerate((f"{side}UpperLeg", f"{side}LowerLeg", f"{side}Foot")):
@@ -409,7 +541,7 @@ def _upright(geoms) -> bool:
     return True
 
 
-def rig_glb(src: Path, dst: Path) -> dict:
+def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | None = None) -> dict:
     """Rig ``src`` (GLB) into ``dst``. Returns a small info dict. Raises RigError."""
     import pygltflib as pg
     import trimesh
@@ -428,8 +560,18 @@ def rig_glb(src: Path, dst: Path) -> dict:
     flat = trimesh.Scene(geoms)  # world-space geometry, identity node transforms, textures kept
     gltf = pg.GLTF2().load_from_bytes(flat.export(file_type="glb"))
 
-    allv = np.concatenate([np.asarray(g.vertices, dtype=np.float64) for g in geoms])
-    joints, layout = fit_skeleton(allv)
+    # Vertices in the exact order the skinning loop below visits them, so per-vertex masks line up.
+    _b0 = gltf.binary_blob() or b""
+    allv = np.concatenate([_read_accessor(gltf, _b0, pr.attributes.POSITION).astype(np.float64)
+                           for nd in gltf.nodes if nd.mesh is not None
+                           for pr in gltf.meshes[nd.mesh].primitives])
+    hints = None
+    if parts and image_path is not None:
+        try:
+            hints = parts_to_hints(parts, Path(image_path), allv)
+        except Exception as e:  # noqa: BLE001
+            log.warning("could not use body-part labels: %s", e)
+    joints, layout = fit_skeleton(allv, hints)
 
     blob = bytearray(gltf.binary_blob() or b"")
 
@@ -466,6 +608,8 @@ def rig_glb(src: Path, dst: Path) -> dict:
     gltf.skins.append(pg.Skin(name="Armature", joints=list(range(base_idx, base_idx + len(joints))),
                               inverseBindMatrices=ibm_acc, skeleton=base_idx))
 
+    ji_all, ww_all = skin_weights(allv, joints, layout)
+    offset = 0
     skinned = 0
     skin_prims = []
     for node in gltf.nodes[:base_idx]:
@@ -480,7 +624,9 @@ def rig_glb(src: Path, dst: Path) -> dict:
             stride = bv.byteStride or 12
             chunk = np.frombuffer(bytes(blob[start:start + stride * acc.count]), dtype=np.uint8)
             pos = chunk.reshape(acc.count, stride)[:, :12].copy().view(np.float32).reshape(-1, 3)
-            ji, ww = skin_weights(pos.astype(np.float64), joints, layout)
+            ji = ji_all[offset:offset + acc.count]
+            ww = ww_all[offset:offset + acc.count]
+            offset += acc.count
             prim.attributes.JOINTS_0 = add_view_accessor(ji, pg.UNSIGNED_SHORT, "VEC4", pg.ARRAY_BUFFER)
             prim.attributes.WEIGHTS_0 = add_view_accessor(ww, pg.FLOAT, "VEC4", pg.ARRAY_BUFFER)
             if prim.indices is not None:
@@ -703,4 +849,4 @@ def rig_glb(src: Path, dst: Path) -> dict:
     gltf.save_binary(str(dst))
     return {"joints": len(joints), "primitives": skinned, "reoriented": reoriented,
             "legs": layout.has_legs, "arms": [sd for sd in ("Left", "Right") if layout.arm_found.get(sd)],
-            "clip_gain": clip_gain}
+            "clip_gain": clip_gain, "labels_used": hints is not None}

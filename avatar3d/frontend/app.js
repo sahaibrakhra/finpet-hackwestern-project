@@ -290,7 +290,110 @@ function setFile(file) {
   el.preview.hidden = false;
   el.dropHint.hidden = true;
   el.generateBtn.disabled = false;
+  setPartsData(null);
+  partsEl.row.hidden = false;
 }
+
+
+// ---------------------------------------------------------------- body-part marking (optional)
+const PARTS = [
+  { key: 'head',      label: 'Head',      color: '#ffd166', box: [0.38, 0.02, 0.62, 0.20] },
+  { key: 'torso',     label: 'Torso',     color: '#4cc9f0', box: [0.32, 0.20, 0.68, 0.55] },
+  { key: 'left_arm',  label: 'Left arm',  color: '#ef476f', box: [0.68, 0.20, 0.88, 0.55] },
+  { key: 'right_arm', label: 'Right arm', color: '#06d6a0', box: [0.12, 0.20, 0.32, 0.55] },
+  { key: 'left_leg',  label: 'Left leg',  color: '#f78c6b', box: [0.50, 0.55, 0.68, 0.98] },
+  { key: 'right_leg', label: 'Right leg', color: '#9b8cff', box: [0.32, 0.55, 0.50, 0.98] },
+];
+const partsEl = {
+  row: $('partsRow'), info: $('partsInfo'), markBtn: $('markBtn'), modal: $('partsModal'), stage: $('partsStage'),
+  img: $('partsImg'), reset: $('partsReset'), clear: $('partsClear'), cancel: $('partsCancel'), apply: $('partsApply'),
+};
+let partsData = null;   // applied boxes (normalised 0..1 on the photo) or null = auto-detect
+let partsDraft = {};
+
+function resetDraft() {
+  partsDraft = {};
+  for (const p of PARTS) partsDraft[p.key] = p.box.slice();
+}
+
+function renderPartBoxes() {
+  partsEl.stage.querySelectorAll('.partbox').forEach((n) => n.remove());
+  for (const p of PARTS) {
+    const box = document.createElement('div');
+    box.className = 'partbox';
+    box.style.setProperty('--c', p.color);
+    box.dataset.key = p.key;
+    box.innerHTML = `<span>${p.label}</span><i></i>`;
+    partsEl.stage.appendChild(box);
+    layoutPartBox(box);
+  }
+}
+
+function layoutPartBox(box) {
+  const b = partsDraft[box.dataset.key];
+  box.style.left = `${b[0] * 100}%`;
+  box.style.top = `${b[1] * 100}%`;
+  box.style.width = `${(b[2] - b[0]) * 100}%`;
+  box.style.height = `${(b[3] - b[1]) * 100}%`;
+}
+
+partsEl.stage.addEventListener('pointerdown', (e) => {
+  const box = e.target.closest('.partbox');
+  if (!box) return;
+  e.preventDefault();
+  const key = box.dataset.key;
+  const resizing = e.target.tagName === 'I';
+  const rect = partsEl.stage.getBoundingClientRect();
+  const start = { x: e.clientX, y: e.clientY, b: partsDraft[key].slice() };
+  partsEl.stage.appendChild(box); // raise
+  box.setPointerCapture(e.pointerId);
+  const MIN = 0.03;
+  const move = (ev) => {
+    const dx = (ev.clientX - start.x) / rect.width;
+    const dy = (ev.clientY - start.y) / rect.height;
+    let [x0, y0, x1, y1] = start.b;
+    if (resizing) {
+      x1 = Math.min(1, Math.max(x0 + MIN, x1 + dx));
+      y1 = Math.min(1, Math.max(y0 + MIN, y1 + dy));
+    } else {
+      const w = x1 - x0, h = y1 - y0;
+      x0 = Math.min(1 - w, Math.max(0, x0 + dx)); x1 = x0 + w;
+      y0 = Math.min(1 - h, Math.max(0, y0 + dy)); y1 = y0 + h;
+    }
+    partsDraft[key] = [x0, y0, x1, y1];
+    layoutPartBox(box);
+  };
+  const up = () => { box.removeEventListener('pointermove', move); box.removeEventListener('pointerup', up); };
+  box.addEventListener('pointermove', move);
+  box.addEventListener('pointerup', up);
+});
+
+function openPartsModal() {
+  if (!selectedFile) return;
+  partsEl.img.onload = () => renderPartBoxes();
+  partsEl.img.src = el.preview.src;
+  resetDraft();
+  if (partsData) for (const k in partsData) partsDraft[k] = partsData[k].slice();
+  partsEl.modal.hidden = false;
+  if (partsEl.img.complete) renderPartBoxes();
+}
+
+function setPartsData(d) {
+  partsData = d;
+  partsEl.info.textContent = d ? 'Marked ✓' : 'Auto-detect';
+}
+
+partsEl.markBtn.addEventListener('click', openPartsModal);
+partsEl.reset.addEventListener('click', () => { resetDraft(); renderPartBoxes(); });
+partsEl.clear.addEventListener('click', () => { setPartsData(null); partsEl.modal.hidden = true; });
+partsEl.cancel.addEventListener('click', () => { partsEl.modal.hidden = true; });
+partsEl.apply.addEventListener('click', () => {
+  const d = {};
+  for (const p of PARTS) d[p.key] = partsDraft[p.key].map((n) => Math.round(n * 10000) / 10000);
+  setPartsData(d);
+  partsEl.modal.hidden = true;
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') partsEl.modal.hidden = true; });
 
 el.dropzone.addEventListener('click', () => el.fileInput.click());
 el.dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.fileInput.click(); } });
@@ -334,6 +437,7 @@ async function startJob() {
   try {
     const fd = new FormData();
     fd.append('photo', selectedFile);
+    if (partsData) fd.append('parts', JSON.stringify(partsData));
     const r = await fetch('/api/avatars', { method: 'POST', body: fd });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(errText(data) || `Upload failed (HTTP ${r.status})`);

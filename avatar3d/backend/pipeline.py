@@ -96,7 +96,7 @@ def _stylize(src: Path, dst: Path) -> None:
 
 
 def run_pipeline(store: JobStore, job_id: str, image_path: Path, provider: Provider,
-                 models_dir: Path) -> None:
+                 models_dir: Path, parts: dict | None = None) -> None:
     """Stages 2-5. Stage 1 (validate/normalize) already ran in the upload handler."""
     notes: list[str] = []
 
@@ -154,7 +154,7 @@ def run_pipeline(store: JobStore, job_id: str, image_path: Path, provider: Provi
             rigged = glb.with_name(f"{glb.stem}_rigged.glb")
             try:
                 import rigging
-                info = rigging.rig_glb(glb, rigged)
+                info = rigging.rig_glb(glb, rigged, parts=parts, image_path=current)
                 glb = rigged
                 log.info("job %s rigged: %s", job_id, info)
             except Exception as e:  # noqa: BLE001

@@ -34,6 +34,10 @@
           <p id="dropHint">Drag &amp; drop a JPG / PNG / WebP here<br>or click to choose (max 10 MB)</p>
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        <div class="row" id="partsRow" hidden>
+          <button id="markBtn" type="button">Mark body parts (optional)</button>
+          <span id="partsInfo" class="muted">Auto-detect</span>
+        </div>
         <button id="generateBtn" class="primary" disabled>Generate avatar</button>
 
         <ol id="stepper" hidden>
@@ -88,5 +92,20 @@
   </main>
 
   <script type="module" src="app.js"></script>
+  <div id="partsModal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>Mark body parts</h2>
+      <p class="muted">Drag each box over its body part and drag its corner to resize. Left and right are the
+        character's own, so the character's left is the right-hand side of the photo. Boxes can be rough.
+        Parts you don't mark are detected automatically.</p>
+      <div id="partsStage"><img id="partsImg" alt="Photo to mark" draggable="false"></div>
+      <div class="row">
+        <button id="partsReset" type="button">Reset boxes</button>
+        <button id="partsClear" type="button">Skip (auto-detect)</button>
+        <button id="partsCancel" type="button">Cancel</button>
+        <button id="partsApply" type="button" class="primary">Use these</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

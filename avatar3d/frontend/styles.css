@@ -49,3 +49,15 @@ input[type=range] { width: 100%; }
 #viewerMsg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); pointer-events: none; }
 #viewerMsg.hidden { display: none; }
 @media (max-width: 800px) { main { flex-direction: column; } aside { width: auto; max-height: 50vh; border-right: 0; } #viewerWrap { min-height: 50vh; } }
+
+/* body-part marking overlay */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.modal[hidden] { display: none; }
+.modal-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; max-width: 92vw; max-height: 94vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.modal-card .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.modal-card button.primary { width: auto; margin-top: 0; }
+#partsStage { position: relative; align-self: center; line-height: 0; user-select: none; touch-action: none; background: #000; }
+#partsImg { max-width: min(80vw, 760px); max-height: 62vh; display: block; }
+.partbox { position: absolute; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); cursor: move; }
+.partbox > span { position: absolute; left: 0; top: 0; background: var(--c); color: #000; font: 600 11px/1 system-ui, sans-serif; padding: 2px 4px; white-space: nowrap; pointer-events: none; }
+.partbox > i { position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; background: var(--c); cursor: nwse-resize; }

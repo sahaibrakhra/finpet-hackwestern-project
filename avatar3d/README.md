@@ -115,3 +115,19 @@ Assumptions and limits: the model is upright, Y-up and faces +Z. It is a heurist
 nearest-bone weights), so it suits humanoid characters and will deform oddly on unusual shapes. If rigging
 fails the unrigged model is shown with a note. Set `RIG=false` in `.env` to skip it (the viewer then falls
 back to the procedural idle). Models that already have a skeleton are left alone.
+
+## Marking body parts (optional)
+
+After choosing a photo, click **Mark body parts (optional)**. Drag a box over each of the head, torso, left arm,
+right arm, left leg and right leg (left/right are the character's own, so the character's left is the right-hand
+side of the photo). Boxes can be rough. The rig then uses them instead of guessing: crotch and neck heights, which
+vertices are arms, and where the legs split. Parts you leave out, or clicking **Skip**, fall back to automatic
+detection.
+
+API: `POST /api/avatars` accepts an optional multipart field `parts` with JSON such as
+`{"head":[x0,y0,x1,y1],"torso":[...],"left_arm":[...],"right_arm":[...],"left_leg":[...],"right_leg":[...]}`.
+Coordinates are fractions (0 to 1) of the photo, `[left, top, right, bottom]`. Any subset of keys is allowed;
+invalid values return HTTP 400.
+
+Wave and dance clips adapt to the rig: they use only the arms and legs that were found, and each clip is
+automatically toned down if it would stretch the mesh.
