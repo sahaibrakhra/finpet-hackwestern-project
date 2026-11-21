@@ -22,8 +22,14 @@ struct Question {
 }
 
 enum LessonLibrary {
-    static let daily = [tfsa, credit, investments]
-    static let monthly = [compounding, retirement]
+    static let daily = units.flatMap(\.lessons)
+    static let units = [
+        LearningUnit(title: "TFSAs", lessons: [tfsa, tfsaRoom]),
+        LearningUnit(title: "RRSPs", lessons: [rrsp, rrspWithdrawals]),
+        LearningUnit(title: "Credit and borrowing", lessons: [credit, loans]),
+        LearningUnit(title: "Investing basics", lessons: [investments, fundFees]),
+        LearningUnit(title: "Long-term planning", lessons: [compounding, retirement])
+    ]
 
     static let tfsa = Lesson(id: "tfsa", title: "TFSA basics", briefing: [
         "A Tax-Free Savings Account is a Canadian registered account. It can hold eligible investments, including cash, GICs, and some stocks or funds.",
@@ -89,7 +95,7 @@ enum LessonLibrary {
 struct Quiz: View {
     let pet: Pet
     let lesson: Lesson
-    let completed: () -> Void
+    let completed: (Int) -> Void
     let close: () -> Void
     @State private var briefing = true
     @State private var index = 0
@@ -106,11 +112,13 @@ struct Quiz: View {
                 HStack {
                     Button(action: close) { Image(systemName: "xmark").frame(width: 44, height: 44) }
                         .accessibilityLabel("Close lesson")
-                    Spacer()
                     if !briefing && !finished {
                         Meter(progress: Double(index + 1) / Double(lesson.questions.count), background: line)
                         Text("\(index + 1)/\(lesson.questions.count)").font(.subheadline.bold())
+                    } else {
+                        Spacer()
                     }
+                    pet.frame(width: 49)
                 }.foregroundStyle(muted)
                 if briefing {
                     briefingContent
@@ -136,10 +144,13 @@ struct Quiz: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Quick briefing").font(.subheadline.bold()).foregroundStyle(forest)
             Text(lesson.title).font(.largeTitle.bold())
-            pet.frame(width: 105)
             VStack(alignment: .leading, spacing: 15) {
                 ForEach(lesson.briefing, id: \.self) { Text($0) }
             }.frame(maxWidth: .infinity, alignment: .leading).petCard()
+            exampleCard
+            if let source = lesson.source {
+                Link("Read the source", destination: source).font(.footnote.bold()).foregroundStyle(forest)
+            }
             Text("\(lesson.questions.count) questions follow this briefing.").font(.footnote).foregroundStyle(muted)
         }
     }
@@ -147,17 +158,20 @@ struct Quiz: View {
     private var questionContent: some View {
         VStack(alignment: .leading, spacing: 13) {
             Text(lesson.title).font(.subheadline.bold()).foregroundStyle(muted)
-            HStack(alignment: .bottom, spacing: 8) {
-                pet.frame(width: 78)
-                Text(question.prompt).font(.headline).frame(maxWidth: .infinity, alignment: .leading).petCard()
-            }
+            Text(question.prompt).font(.title3.bold())
+                .frame(maxWidth: .infinity, alignment: .leading).petCard()
             ForEach(question.choices.indices, id: \.self) { option in
                 Button { selected = option } label: {
                     HStack {
-                        Image(systemName: selected == option ? "largecircle.fill.circle" : "circle").foregroundStyle(forest)
+                        Image(systemName: answerIcon(option)).foregroundStyle(answerColor(option))
                         Text(question.choices[option]).font(.headline)
                         Spacer()
-                    }.petCard(selected == option ? mint : .white, radius: 16)
+                        if checked && option == question.correct {
+                            Text("Correct").font(.caption.bold()).foregroundStyle(forest)
+                        } else if checked && selected == option {
+                            Text("Your answer").font(.caption.bold()).foregroundStyle(.red)
+                        }
+                    }.petCard(answerBackground(option), radius: 16)
                 }.buttonStyle(.plain).disabled(checked)
             }
             if checked {
@@ -167,6 +181,38 @@ struct Quiz: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
             }
         }
+    }
+
+    private var exampleCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(lesson.example.title).font(.headline).foregroundStyle(forest)
+            ForEach(Array(lesson.example.rows.enumerated()), id: \.offset) { index, row in
+                if index > 0 { Divider() }
+                HStack(alignment: .top, spacing: 10) {
+                    Text(row.label)
+                    Spacer(minLength: 8)
+                    Text(row.value).bold().multilineTextAlignment(.trailing)
+                }.font(.subheadline)
+            }
+            Text(lesson.example.note).font(.footnote).foregroundStyle(muted)
+        }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func answerIcon(_ option: Int) -> String {
+        if checked && option == question.correct { return "checkmark.circle.fill" }
+        if checked && selected == option { return "xmark.circle.fill" }
+        return selected == option ? "largecircle.fill.circle" : "circle"
+    }
+
+    private func answerColor(_ option: Int) -> Color {
+        checked && selected == option && option != question.correct ? .red : forest
+    }
+
+    private func answerBackground(_ option: Int) -> Color {
+        if checked && option == question.correct { return mint }
+        if checked && selected == option { return .red.opacity(0.10) }
+        return selected == option ? mint : .white
     }
 
     private var buttonTitle: String {
@@ -185,7 +231,7 @@ struct Quiz: View {
             if selected == question.correct { score += 1 }
         } else if index == lesson.questions.count - 1 {
             finished = true
-            completed()
+            completed(score)
         } else {
             index += 1
             self.selected = nil

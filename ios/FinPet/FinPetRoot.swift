@@ -31,6 +31,7 @@ struct FinPetRoot: View {
     @AppStorage("finpet.ref.personality") private var personality = "Just tryna be normal"
     @AppStorage("finpet.ref.photo") private var photo = Data()
     @AppStorage("finpet.education.history") private var history = Data()
+    @AppStorage("finpet.education.attempts") private var attemptData = Data()
     @AppStorage("finpet.ref.checkins") private var checkins = ""
     @AppStorage("finpet.ref.friends") private var extraFriends = ""
     @Environment(\.scenePhase) private var scenePhase
@@ -48,6 +49,16 @@ struct FinPetRoot: View {
         (try? JSONDecoder().decode([String: Date].self, from: history)) ?? [:]
     }
     private var calendar: Calendar { .current }
+    private var attempts: [String: Attempt] {
+        (try? JSONDecoder().decode([String: Attempt].self, from: attemptData)) ?? [:]
+    }
+
+    private struct Attempt: Codable {
+        let date: Date
+        let lessonID: String
+        let score: Int
+        let questions: Int
+    }
 
     var body: some View {
         GeometryReader { viewport in
@@ -86,9 +97,17 @@ struct FinPetRoot: View {
                 MascotEditor(name: $name, color: $color, accessory: $accessory, personality: $personality,
                              photo: $photo, close: { sheet = nil })
             case .lesson(let lesson, let key):
-                Quiz(pet: pet(), lesson: lesson, completed: {
+                Quiz(pet: pet(), lesson: lesson, completed: { score in
                     var updated = completed
                     updated[key] = .now
+                    updated["library-" + lesson.id] = .now
+                    var recorded = attempts
+                    let attemptKey = dateKey(.now) + "-" + lesson.id
+                    if recorded[attemptKey] == nil || score > (recorded[attemptKey]?.score ?? 0) {
+                        recorded[attemptKey] = Attempt(date: .now, lessonID: lesson.id, score: score,
+                                                       questions: lesson.questions.count)
+                        if let data = try? JSONEncoder().encode(recorded) { attemptData = data }
+                    }
                     updated["practice-" + dateKey(.now)] = .now
                     if let data = try? JSONEncoder().encode(updated) { history = data }
                     day = .now
@@ -156,12 +175,6 @@ struct FinPetRoot: View {
         return [LessonLibrary.daily[start], LessonLibrary.daily[(start + 1) % LessonLibrary.daily.count]]
     }
 
-    private var monthlyLesson: Lesson {
-        let parts = calendar.dateComponents([.year, .month], from: day)
-        let index = ((parts.year ?? 0) * 12 + (parts.month ?? 1) - 1) % LessonLibrary.monthly.count
-        return LessonLibrary.monthly[index]
-    }
-
     private var practiceDays: Set<Date> {
         Set(completed.filter { $0.key.hasPrefix("practice-") }.values.map { calendar.startOfDay(for: $0) })
     }
@@ -214,7 +227,7 @@ struct FinPetRoot: View {
                 challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", icon: "sun.max")
             }
             Text("Monthly challenge").font(.title2.bold())
-            challenge(monthlyLesson, key: "monthly-\(dateKey(day, monthly: true))-\(monthlyLesson.id)", icon: "calendar")
+            monthlyQuest
         }
     }
 
@@ -260,14 +273,111 @@ struct FinPetRoot: View {
         }.buttonStyle(.plain)
     }
 
+    private var monthlyQuest: some View {
+        let month = attempts.values.filter { calendar.isDate($0.date, equalTo: day, toGranularity: .month) }
+        let byDay = Dictionary(grouping: month, by: { calendar.startOfDay(for: $0.date) })
+        let mostInOneDay = byDay.values.map(\.count).max() ?? 0
+        let perfectLessons = Set(month.filter { $0.score == $0.questions }.map(\.lessonID)).count
+        let exercises = month.reduce(0) { $0 + $1.questions }
+        return VStack(alignment: .leading, spacing: 12) {
+            Text(day.formatted(.dateTime.month(.wide)) + " learning quest").font(.headline)
+            questRow("Finish 3 different lessons in one day", mostInOneDay, 3)
+            questRow("Get a perfect score on 2 lessons", perfectLessons, 2)
+            questRow("Complete 25 questions", exercises, 25)
+            ActionButton(title: "Go to lessons", secondary: true) { page = .learn }
+        }.petCard()
+    }
+
+    private func questRow(_ title: String, _ value: Int, _ target: Int) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(min(value, target))/\(target)").bold()
+            }.font(.footnote)
+            Meter(progress: Double(value) / Double(target), background: mint)
+        }
+    }
+
     private var learn: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            heading("Learn")
-            Text("Explore a topic at your own pace.").foregroundStyle(muted)
-            ForEach(LessonLibrary.daily + LessonLibrary.monthly) { lesson in
-                challenge(lesson, key: "library-\(lesson.id)", icon: "book")
+        LazyVStack(alignment: .leading, spacing: 20) {
+            HStack {
+                heading("Learn")
+                Label("\(streak)", systemImage: "flame.fill")
+                    .font(.subheadline.bold()).padding(8).background(honey, in: Capsule())
+                pet().frame(width: 55)
+            }
+            ForEach(Array(LessonLibrary.units.enumerated()), id: \.offset) { index, unit in
+                unitPath(unit, number: index + 1)
             }
         }
+    }
+
+    private func unitPath(_ unit: LearningUnit, number: Int) -> some View {
+        let count = unit.lessons.filter { completed["library-" + $0.id] != nil }.count
+        let next = unit.lessons.first { completed["library-" + $0.id] == nil }?.id
+        return VStack(alignment: .leading, spacing: 13) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Unit \(number)").foregroundStyle(muted)
+                    Spacer()
+                    Text("\(count) of \(unit.lessons.count) done").foregroundStyle(forest)
+                }.font(.subheadline.bold())
+                Text(unit.title).font(.title2.weight(.heavy))
+                Meter(progress: Double(count) / Double(unit.lessons.count))
+            }.padding(17).background(mint, in: RoundedRectangle(cornerRadius: 24))
+            VStack(alignment: .leading, spacing: 13) {
+                ForEach(unit.lessons) { lesson in
+                    let key = "library-" + lesson.id
+                    let done = completed[key] != nil
+                    let current = lesson.id == next
+                    HStack(spacing: 12) {
+                        pathNode(done: done, current: current)
+                        if current {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text("Up next").font(.footnote.bold()).foregroundStyle(forest)
+                                Text(lesson.title).font(.title3.weight(.heavy))
+                                Text("Quick briefing · \(lesson.questions.count) questions").font(.footnote).foregroundStyle(muted)
+                                ActionButton(title: "Start lesson") { sheet = .lesson(lesson, completionKey: key) }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .petCard()
+                            .overlay { RoundedRectangle(cornerRadius: 22).strokeBorder(forest) }
+                        } else if done {
+                            Button { sheet = .lesson(lesson, completionKey: key) } label: {
+                                pathLabel(lesson.title, detail: "Done · tap to review")
+                            }.buttonStyle(.plain)
+                        } else {
+                            pathLabel(lesson.title, detail: "Locked · finish the earlier lesson")
+                                .foregroundStyle(muted)
+                        }
+                    }
+                }
+            }.background(alignment: .leading) {
+                Rectangle().fill(mint).frame(width: 4).padding(.leading, 34).padding(.vertical, 28)
+            }
+        }
+    }
+
+    private func pathLabel(_ title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.headline)
+            Text(detail).font(.footnote).foregroundStyle(muted)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func pathNode(done: Bool, current: Bool) -> some View {
+        Image(systemName: done ? "checkmark" : (current ? "book.closed" : "lock"))
+            .font(current ? .title2.bold() : .headline)
+            .foregroundStyle(current ? .white : (done ? forest : muted))
+            .frame(width: current ? 59 : 49, height: current ? 59 : 49)
+            .background(current ? forest : (done ? mint : cream), in: Circle())
+            .overlay { Circle().strokeBorder(done || current ? ink : muted.opacity(0.5),
+                                             style: StrokeStyle(lineWidth: 2, dash: done || current ? [] : [4, 2])) }
+            .padding(current ? 4 : 0)
+            .overlay { if current { Circle().strokeBorder(PetColor.sunny.fill, lineWidth: 3) } }
+            .frame(width: 72)
+            .accessibilityHidden(true)
     }
 
     private var allFriends: [(name: String, days: Int, ready: Bool, color: PetColor)] {
