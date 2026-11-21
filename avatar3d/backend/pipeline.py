@@ -37,6 +37,10 @@ def rembg_enabled() -> bool:
     return env_bool("REMBG", True)
 
 
+def colorize_enabled() -> bool:
+    return env_bool("COLORIZE", True)
+
+
 def rig_enabled() -> bool:
     return env_bool("RIG", True)
 
@@ -129,6 +133,20 @@ def run_pipeline(store: JobStore, job_id: str, image_path: Path, provider: Provi
         # 4. mesh
         stage("generating_mesh", f"Generating 3D mesh with '{provider.name}' provider...")
         glb = provider.generate(current, on_progress=lambda m: stage("generating_mesh", m))
+
+        # 4a. colour untextured meshes by projecting the photo onto them
+        if colorize_enabled():
+            stage("generating_mesh", "Colouring model from your photo...")
+            coloured = glb.with_name(f"{glb.stem}_col.glb")
+            try:
+                import colorize
+                colorize.colorize_glb(glb, current, coloured)
+                glb = coloured
+            except colorize.ColorizeError as e:
+                log.info("colorize skipped: %s", e)
+            except Exception as e:  # noqa: BLE001
+                log.warning("colorize failed: %s", e)
+                notes.append("(Colouring failed; showing the model uncoloured.)")
 
         # 4b. local auto-rig (skeleton + skin weights + idle clip)
         if rig_enabled():
