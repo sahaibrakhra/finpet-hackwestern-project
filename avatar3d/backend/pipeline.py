@@ -59,10 +59,16 @@ def normalize_photo(data: bytes) -> Image.Image:
     return img
 
 
+_REMBG_SESSION = None
+
+
 def _remove_background(src: Path, dst: Path) -> None:
-    from rembg import remove  # heavy import, keep lazy
+    from rembg import new_session, remove  # heavy import, keep lazy
+    global _REMBG_SESSION
+    if _REMBG_SESSION is None:
+        _REMBG_SESSION = new_session(os.getenv("REMBG_MODEL", "u2net"))
     with Image.open(src) as im:
-        out = remove(im)
+        out = remove(im, session=_REMBG_SESSION)
     out.save(dst, "PNG")
 
 
