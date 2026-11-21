@@ -105,3 +105,13 @@ Jobs persist across restarts; a job that was running when the server stopped bec
 - Invalid image -> HTTP 415, over 10 MB -> 413, unknown id -> 404.
 - Default HF Space ID is a best guess and may need changing. The Gemini model default is `gemini-2.5-flash-image`.
 - Server code lives in `backend\` and must be started from there (`cd backend`), since modules import each other by bare name.
+
+## Local auto-rig (RIG=true, default)
+
+After any provider produces a mesh, `backend/rigging.py` fits a humanoid skeleton (22 joints), computes skin
+weights, and adds a looping `idle` animation clip, all on the CPU with no network. The viewer plays that clip.
+
+Assumptions and limits: the model is upright, Y-up and faces +Z. It is a heuristic (proportions plus
+nearest-bone weights), so it suits humanoid characters and will deform oddly on unusual shapes. If rigging
+fails the unrigged model is shown with a note. Set `RIG=false` in `.env` to skip it (the viewer then falls
+back to the procedural idle). Models that already have a skeleton are left alone.

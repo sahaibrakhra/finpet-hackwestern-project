@@ -37,6 +37,10 @@ def rembg_enabled() -> bool:
     return env_bool("REMBG", True)
 
 
+def rig_enabled() -> bool:
+    return env_bool("RIG", True)
+
+
 def stylize_enabled() -> bool:
     return env_bool("STYLIZE", False) and bool(os.getenv("GEMINI_API_KEY", "").strip())
 
@@ -125,6 +129,19 @@ def run_pipeline(store: JobStore, job_id: str, image_path: Path, provider: Provi
         # 4. mesh
         stage("generating_mesh", f"Generating 3D mesh with '{provider.name}' provider...")
         glb = provider.generate(current, on_progress=lambda m: stage("generating_mesh", m))
+
+        # 4b. local auto-rig (skeleton + skin weights + idle clip)
+        if rig_enabled():
+            stage("generating_mesh", "Rigging model (skeleton + skin weights)...")
+            rigged = glb.with_name(f"{glb.stem}_rigged.glb")
+            try:
+                import rigging
+                info = rigging.rig_glb(glb, rigged)
+                glb = rigged
+                log.info("job %s rigged: %s", job_id, info)
+            except Exception as e:  # noqa: BLE001
+                log.warning("rigging failed: %s", e)
+                notes.append(f"(Rigging failed: {e}; showing the unrigged model.)")
 
         # 5. finalize
         stage("finalizing", "Saving model...")

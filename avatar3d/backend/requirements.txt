@@ -10,3 +10,4 @@ onnxruntime>=1.17
 gradio_client>=1.0
 google-genai>=1.0
 requests>=2.31
+pygltflib>=1.16
