@@ -14,7 +14,7 @@ private enum Page: String, CaseIterable {
 }
 
 private enum Sheet: String, Identifiable {
-    case lesson, purchases
+    case setup, lesson, purchases
     var id: String { rawValue }
 }
 
@@ -62,6 +62,9 @@ struct FinPetRoot: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { tabs }
         .fullScreenCover(item: $sheet) { item in
             switch item {
+            case .setup:
+                MascotEditor(name: $name, color: $color, accessory: $accessory, personality: $personality,
+                             photo: $photo, close: { sheet = nil })
             case .lesson:
                 Quiz(pet: pet(), completed: {
                     tasks |= 2
@@ -133,6 +136,15 @@ struct FinPetRoot: View {
         VStack(alignment: .leading, spacing: 15) {
             heading(petName, streak: true)
             MascotStage(mascot: pet()).frame(height: mascotHeight)
+            Button {
+                sheet = .setup
+            } label: {
+                Label(photo.isEmpty ? "Upload mascot photo" : "Change mascot photo", systemImage: "camera")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(forest)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
             HStack(alignment: .center, spacing: 16) {
                 Text("$58").font(.system(size: 37, weight: .heavy))
                 VStack(alignment: .leading, spacing: 4) {
