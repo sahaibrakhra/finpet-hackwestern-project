@@ -26,6 +26,7 @@ enum LessonLibrary {
     static let units = [
         LearningUnit(title: "TFSAs", lessons: [tfsa, tfsaRoom]),
         LearningUnit(title: "RRSPs", lessons: [rrsp, rrspWithdrawals]),
+        LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals]),
         LearningUnit(title: "Credit and borrowing", lessons: [credit, loans]),
         LearningUnit(title: "Investing basics", lessons: [investments, fundFees]),
         LearningUnit(title: "Long-term planning", lessons: [compounding, retirement])
@@ -98,6 +99,7 @@ struct Quiz: View {
     let completed: (Int) -> Void
     let close: () -> Void
     @State private var briefing = true
+    @State private var started = false
     @State private var index = 0
     @State private var selected: Int?
     @State private var checked = false
@@ -120,6 +122,7 @@ struct Quiz: View {
                     }
                     pet.frame(width: 49)
                 }.foregroundStyle(muted)
+                if started && !finished { lessonTabs }
                 if briefing {
                     briefingContent
                 } else if finished {
@@ -140,6 +143,22 @@ struct Quiz: View {
         }
     }
 
+    private var lessonTabs: some View {
+        HStack(spacing: 6) {
+            lessonTab("Briefing", isSelected: briefing) { briefing = true }
+            lessonTab("Questions", isSelected: !briefing) { briefing = false }
+        }.padding(4).background(mint, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func lessonTab(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.subheadline.bold()).frame(maxWidth: .infinity).padding(.vertical, 9)
+                .background(isSelected ? .white : .clear, in: RoundedRectangle(cornerRadius: 10))
+                .foregroundStyle(isSelected ? forest : muted)
+        }.buttonStyle(.plain)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
     private var briefingContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Quick briefing").font(.subheadline.bold()).foregroundStyle(forest)
@@ -148,6 +167,7 @@ struct Quiz: View {
                 ForEach(lesson.briefing, id: \.self) { Text($0) }
             }.frame(maxWidth: .infinity, alignment: .leading).petCard()
             exampleCard
+            if let chart = lesson.chart { exampleChart(chart) }
             if let source = lesson.source {
                 Link("Read the source", destination: source).font(.footnote.bold()).foregroundStyle(forest)
             }
@@ -176,7 +196,10 @@ struct Quiz: View {
             }
             if checked {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(selected == question.correct ? "You got it!" : "Here’s how it works").font(.headline)
+                    Text(selected == question.correct ? "Correct!" : "Incorrect").font(.headline)
+                    if selected != question.correct {
+                        Text("Correct answer: " + question.choices[question.correct]).font(.subheadline.bold())
+                    }
                     Text(question.feedback).font(.subheadline)
                 }.frame(maxWidth: .infinity, alignment: .leading).petCard(mint)
             }
@@ -199,6 +222,23 @@ struct Quiz: View {
         .accessibilityElement(children: .contain)
     }
 
+    private func exampleChart(_ chart: LessonChart) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(chart.title).font(.headline)
+            ForEach(Array(chart.bars.enumerated()), id: \.offset) { _, bar in
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text(bar.label)
+                        Spacer()
+                        Text(bar.value, format: .currency(code: "CAD").precision(.fractionLength(0))).bold()
+                    }.font(.footnote)
+                    Meter(progress: bar.value / chart.maximum, background: mint)
+                        .accessibilityHidden(true)
+                }.accessibilityElement(children: .combine)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading).petCard()
+    }
+
     private func answerIcon(_ option: Int) -> String {
         if checked && option == question.correct { return "checkmark.circle.fill" }
         if checked && selected == option { return "xmark.circle.fill" }
@@ -216,14 +256,14 @@ struct Quiz: View {
     }
 
     private var buttonTitle: String {
-        if briefing { return "Start questions" }
+        if briefing { return started ? "Back to questions" : "Start questions" }
         if finished { return "Done" }
         if !checked { return "Check" }
         return index == lesson.questions.count - 1 ? "See result" : "Continue"
     }
 
     private func advance() {
-        if briefing { briefing = false; return }
+        if briefing { started = true; briefing = false; return }
         if finished { close(); return }
         guard let selected else { return }
         if !checked {

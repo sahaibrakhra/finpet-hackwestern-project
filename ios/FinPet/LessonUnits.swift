@@ -29,6 +29,10 @@ extension Lesson {
             path = "revenue-agency/services/tax/individuals/topics/rrsps-related-plans/registered-retirement-savings-plan-rrsp.html"
         case "rrsp-withdrawals":
             path = "revenue-agency/services/tax/individuals/topics/rrsps-related-plans/making-withdrawals.html"
+        case "fhsa":
+            path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/tax-deductions-fhsa-contributions.html"
+        case "fhsa-withdrawals":
+            path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/withdrawals-transfers-out-your-fhsas.html"
         case "investments", "fund-fees":
             path = "financial-consumer-agency/services/savings-investments/investing-basics.html"
         default:
@@ -62,6 +66,14 @@ extension Lesson {
             LessonExample("Two example $1,000 loans", [("Loan A", "10 × $110 = $1,100"),
                 ("Loan B", "12 × $100 = $1,200"), ("Extra total paid on Loan B", "$100")],
                 "The smaller monthly payment comes with a higher total cost in this example.")
+        case "fhsa":
+            LessonExample("Example FHSA contribution record", [("Cash contribution", "$2,000"),
+                ("Direct RRSP transfer", "$1,000"), ("Potential deduction from these deposits", "$2,000")],
+                "A direct RRSP transfer is excluded from the deduction and generally uses available FHSA room.")
+        case "fhsa-withdrawals":
+            LessonExample("Compare three routes", [("Qualifying first-home withdrawal", "Tax-free"),
+                ("Ordinary withdrawal", "Generally taxable"), ("Eligible direct transfer to RRSP", "Generally no immediate tax")],
+                "The rules depend on the type of transaction. Check the criteria before taking money out.")
         case "investments":
             LessonExample("What you own", [("Stock", "A share in a company"), ("Bond", "Debt issued by a borrower"),
                 ("Broad fund", "A basket of investments")], "The holdings and fees tell you more about a fund than its name.")
@@ -138,5 +150,56 @@ extension LessonLibrary {
         Question("With $50 of gross gain and a $10 illustrative fee, what remains?", ["$40", "$50", "$60"], 0, "The fee reduces the gain by $10."),
         Question("Can two funds have different holdings even if they charge the same fee?", ["Yes", "No"], 0, "Funds can follow different strategies at the same fee level."),
         Question("What should you compare besides fees?", ["Holdings and risk", "Just the fund’s name"], 0, "Holdings and risk describe what you’re investing in.")
+    ])
+}
+
+struct LessonChart {
+    let title: String
+    let bars: [(label: String, value: Double)]
+    var maximum: Double { bars.map(\.value).max() ?? 1 }
+}
+
+extension Lesson {
+    var chart: LessonChart? {
+        switch id {
+        case "tfsa-room":
+            LessonChart(title: "Watch the room shrink", bars: [("Starting room", 2000), ("After Bank A", 1400), ("After Bank B", 1000)])
+        case "credit":
+            LessonChart(title: "After the minimum payment", bars: [("Statement balance", 500), ("Paid", 25), ("Still owed", 475)])
+        case "loans":
+            LessonChart(title: "Total repayment", bars: [("Loan A", 1100), ("Loan B", 1200)])
+        case "fund-fees":
+            LessonChart(title: "Illustrative annual fees", bars: [("1% example", 10), ("0.2% example", 2)])
+        case "compounding":
+            LessonChart(title: "Growth over two years", bars: [("Start", 100), ("Year 1", 110), ("Year 2", 121)])
+        default:
+            nil
+        }
+    }
+}
+
+extension LessonLibrary {
+    static let fhsa = Lesson(id: "fhsa", title: "FHSA basics", briefing: [
+        "The First Home Savings Account is a Canadian registered account for eligible first-time home buyers. A cash contribution is generally deductible within the applicable rules.",
+        "A direct transfer from an RRSP generally uses FHSA participation room, but it does not create a new deduction.",
+        "Opening an account and making a qualifying withdrawal have separate eligibility requirements. Check the CRA’s current rules for each step."
+    ], questions: [
+        Question("What is an FHSA designed to help with?", ["Saving for an eligible first home", "Paying a credit card bill"], 0, "The FHSA is designed for eligible first-time home buyers."),
+        Question("What can an eligible cash contribution generally do?", ["Create a tax deduction", "Guarantee investment returns"], 0, "Eligible cash contributions are generally deductible."),
+        Question("Does a direct RRSP transfer create a new FHSA deduction?", ["Yes", "No"], 1, "A direct RRSP transfer is not deductible as an FHSA contribution."),
+        Question("In the example, $2,000 is contributed in cash and $1,000 is transferred directly from an RRSP. How much could be deductible?", ["$3,000", "$2,000", "$1,000"], 1, "Only the eligible cash contribution is potentially deductible in the example."),
+        Question("Are the opening and qualifying-withdrawal criteria identical?", ["Yes", "Check each set of criteria separately"], 1, "The CRA distinguishes between opening and taking a qualifying withdrawal.")
+    ])
+
+    static let fhsaWithdrawals = Lesson(id: "fhsa-withdrawals", title: "Choose a withdrawal route", briefing: [
+        "A qualifying FHSA withdrawal for an eligible home purchase is tax-free when the CRA’s conditions are met.",
+        "An ordinary withdrawal that does not qualify is generally taxable. Label and record the transaction accurately.",
+        "An eligible direct transfer to your RRSP or RRIF can generally be made without immediate tax. Ask the institutions to handle the transfer and verify that the conditions apply."
+    ], questions: [
+        Question("If all qualifying-withdrawal conditions are met, how is the withdrawal treated?", ["Tax-free", "Always taxable"], 0, "A qualifying withdrawal is tax-free."),
+        Question("How is an ordinary withdrawal generally treated?", ["It is generally taxable", "It is automatically tax-free"], 0, "The qualifying-withdrawal treatment depends on meeting the conditions."),
+        Question("What is a potential route if you decide not to buy a home?", ["An eligible direct transfer to an RRSP or RRIF", "Treat all withdrawals as qualifying"], 0, "A direct transfer may be available under the applicable rules."),
+        Question("What should you check before a qualifying home withdrawal?", ["The CRA’s current qualifying conditions", "Just the balance on your statement"], 0, "The conditions determine whether the withdrawal qualifies."),
+        Question("Who can help carry out a direct transfer?", ["The account institutions", "A store that accepts your debit card"], 0, "The institutions process and record the direct transfer.")
     ])
 }

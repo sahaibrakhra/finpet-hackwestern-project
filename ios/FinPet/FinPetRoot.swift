@@ -171,7 +171,7 @@ struct FinPetRoot: View {
 
     private var dailyLessons: [Lesson] {
         let ordinal = calendar.ordinality(of: .day, in: .era, for: day) ?? 0
-        let start = (ordinal * 2) % LessonLibrary.daily.count
+        let start = ordinal % LessonLibrary.daily.count
         return [LessonLibrary.daily[start], LessonLibrary.daily[(start + 1) % LessonLibrary.daily.count]]
     }
 
@@ -222,11 +222,15 @@ struct FinPetRoot: View {
                     .padding(12)
                 }
             streakBoard
-            Text("Daily challenges").font(.title2.bold())
-            ForEach(dailyLessons) { lesson in
+            Text("Challenge of the day").font(.title2.bold())
+            ForEach(Array(dailyLessons.prefix(1))) { lesson in
                 challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", icon: "sun.max")
             }
-            Text("Monthly challenge").font(.title2.bold())
+            if let bonus = dailyLessons.last {
+                Text("Bonus practice").font(.subheadline.bold()).foregroundStyle(muted)
+                challenge(bonus, key: "daily-\(dateKey(day))-\(bonus.id)", icon: "sparkles")
+            }
+            Text("Challenge of the month").font(.title2.bold())
             monthlyQuest
         }
     }
@@ -348,8 +352,9 @@ struct FinPetRoot: View {
                                 pathLabel(lesson.title, detail: "Done · tap to review")
                             }.buttonStyle(.plain)
                         } else {
-                            pathLabel(lesson.title, detail: "Locked · finish the earlier lesson")
-                                .foregroundStyle(muted)
+                            Button { sheet = .lesson(lesson, completionKey: key) } label: {
+                                pathLabel(lesson.title, detail: "Quick briefing · \(lesson.questions.count) questions")
+                            }.buttonStyle(.plain)
                         }
                     }
                 }
@@ -367,7 +372,7 @@ struct FinPetRoot: View {
     }
 
     private func pathNode(done: Bool, current: Bool) -> some View {
-        Image(systemName: done ? "checkmark" : (current ? "book.closed" : "lock"))
+        Image(systemName: done ? "checkmark" : (current ? "book.closed" : "book"))
             .font(current ? .title2.bold() : .headline)
             .foregroundStyle(current ? .white : (done ? forest : muted))
             .frame(width: current ? 59 : 49, height: current ? 59 : 49)
