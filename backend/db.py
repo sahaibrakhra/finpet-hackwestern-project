@@ -16,7 +16,8 @@ def _config() -> tuple[str, dict]:
         raise HTTPException(
             503, "Accounts are unavailable: server is missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY."
         )
-    return f"{url}/rest/v1", {"apikey": key, "Authorization": f"Bearer {key}"}
+    base = url if url.endswith("/rest/v1") else f"{url}/rest/v1"
+    return base, {"apikey": key, "Authorization": f"Bearer {key}"}
 
 
 def is_configured() -> bool:
@@ -34,6 +35,13 @@ def _request(method: str, table: str, *, params=None, json=None, prefer: str | N
 
 
 def _check(r: httpx.Response) -> None:
+    if r.status_code == 403:
+        try:
+            code = r.json().get("code")
+        except ValueError:
+            code = None
+        if code == "42501":
+            raise HTTPException(503, "Accounts are unavailable: the server's database role needs access to the accounts table.")
     if r.status_code >= 400:
         raise HTTPException(503, "The accounts database returned an error. Try again shortly.")
 

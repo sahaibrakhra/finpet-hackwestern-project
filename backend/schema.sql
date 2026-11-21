@@ -108,3 +108,7 @@ alter table public.friend_streaks enable row level security;
 
 revoke all on public.users, public.user_stats, public.friendships, public.friend_streaks
     from anon, authenticated;
+
+-- PostgREST also requires table privileges for the backend's service role.
+grant select, insert on table public.users to service_role;
+grant update (last_login_at) on table public.users to service_role;
