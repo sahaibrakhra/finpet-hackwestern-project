@@ -16,7 +16,10 @@ def get_provider(name: str | None = None) -> Provider:
     if name == "hf_space":
         from .hf_space import HfSpaceProvider
         return HfSpaceProvider()
+    if name == "hf_rigged":
+        from .hf_rigged import HfRiggedProvider
+        return HfRiggedProvider()
     if name == "local_gpu":
         from .local_gpu import LocalGpuProvider
         return LocalGpuProvider()
-    raise ValueError(f"Unknown PROVIDER '{name}'. Use mock, hf_space or local_gpu.")
+    raise ValueError(f"Unknown PROVIDER '{name}'. Use mock, hf_space, hf_rigged or local_gpu.")
