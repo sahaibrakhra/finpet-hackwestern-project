@@ -250,6 +250,129 @@ def rig_glb(src: Path, dst: Path) -> dict:
             sampler=len(anim.samplers) - 1, target=pg.AnimationChannelTarget(node=names[jn], path="rotation")))
     gltf.animations.append(anim)
 
+    # one-shot action clips (wave, dance). They start and end at the rest pose so the viewer can
+    # crossfade idle -> clip -> idle without a pop.
+    H = float(allv[:, 1].max() - allv[:, 1].min())
+    jpos = {j[0]: j[2] for j in joints}
+
+    def arm_raise(side: str) -> float:
+        """Radians about +Z (negated for the right arm) that swing the rest-pose arm to point up."""
+        sign = 1 if side == "Left" else -1
+        d = jpos[f"{side}LowerArm"] - jpos[f"{side}UpperArm"]
+        alpha = math.atan2(d[1], d[0] * sign)
+        return (math.pi / 2 - alpha) % (2 * math.pi)
+
+    def smooth(x: float) -> float:
+        x = min(max(x, 0.0), 1.0)
+        return x * x * (3 - 2 * x)
+
+    def envelope(t: float, dur: float, ramp: float = 0.5) -> float:
+        return smooth(t / ramp) * smooth((dur - t) / ramp)
+
+    def add_clip(name: str, dur: float, rot_fn, trans_fn=None, fps: int = 30) -> None:
+        ts = np.arange(0, int(round(dur * fps)) + 1, dtype=np.float64) / fps
+        times_c = ts.astype(np.float32)
+        t_acc_c = add_view_accessor(times_c, pg.FLOAT, "SCALAR", minmax=True)
+        clip = pg.Animation(name=name, samplers=[], channels=[])
+        for jn, fn in rot_fn.items():
+            q = np.array([fn(float(t)) for t in ts], dtype=np.float64)
+            q /= np.linalg.norm(q, axis=1, keepdims=True)
+            o = add_view_accessor(q.astype(np.float32), pg.FLOAT, "VEC4")
+            clip.samplers.append(pg.AnimationSampler(input=t_acc_c, output=o, interpolation="LINEAR"))
+            clip.channels.append(pg.AnimationChannel(
+                sampler=len(clip.samplers) - 1, target=pg.AnimationChannelTarget(node=names[jn], path="rotation")))
+        for jn, fn in (trans_fn or {}).items():
+            tr = np.array([fn(float(t)) for t in ts], dtype=np.float32)
+            o = add_view_accessor(tr, pg.FLOAT, "VEC3")
+            clip.samplers.append(pg.AnimationSampler(input=t_acc_c, output=o, interpolation="LINEAR"))
+            clip.channels.append(pg.AnimationChannel(
+                sampler=len(clip.samplers) - 1, target=pg.AnimationChannelTarget(node=names[jn], path="translation")))
+        gltf.animations.append(clip)
+
+    def rot(*parts):
+        """Compose [(axis, angle_rad), ...] into one quaternion."""
+        qq = np.array([0, 0, 0, 1.0])
+        for axis, ang in parts:
+            qq = _qmul(qq, _axis_quat(axis, ang))
+        return qq
+
+    X, Y, Z = (1, 0, 0), (0, 1, 0), (0, 0, 1)
+    D = math.radians
+    TAU = 2 * math.pi
+    sgn = {"Left": 1, "Right": -1}
+
+    # WAVE (5 s): left arm goes up, forearm waves ~4 times, then comes back down.
+    WD = 5.0
+    up = arm_raise("Left") - D(20)  # slightly outward of vertical so the hand is visible
+    def wave_upper(t):
+        e = envelope(t, WD, 0.7)
+        return rot((Z, up * e))
+    def wave_lower(t):
+        e = envelope(t, WD, 1.0)
+        return rot((Z, D(28) * math.sin(TAU * 0.9 * t) * e))
+    def wave_body(t):
+        e = envelope(t, WD, 0.8)
+        return rot((Z, D(-3) * e), (Y, D(5) * math.sin(TAU * 0.45 * t) * e))
+    def wave_head(t):
+        e = envelope(t, WD, 0.8)
+        return rot((Z, D(6) * e), (Y, D(-6) * e))
+    add_clip("wave", WD, {"LeftUpperArm": wave_upper, "LeftLowerArm": wave_lower, "Spine": wave_body,
+                          "Head": wave_head})
+
+    # DANCE (5 s, 4 beats of 1.25 s): bounce, hip/shoulder twist, arms pumping up and out, head nod.
+    DD, BEAT = 5.0, 1.25
+    def beat(t):  # 0..1 phase within the beat
+        return (t / BEAT) % 1.0
+    def d_env(t):
+        return envelope(t, DD, 0.4)
+    def d_arm(side):
+        s = sgn[side]
+        raise_ = arm_raise(side)
+        def f(t):
+            e = d_env(t)
+            pump = 0.5 + 0.5 * math.sin(TAU * t / (BEAT * 2) - math.pi / 2 + (0 if side == "Left" else math.pi))
+            return rot((Z, s * raise_ * (0.30 + 0.45 * pump) * e))
+        return f
+    def d_elbow(side):
+        s = sgn[side]
+        def f(t):
+            e = d_env(t)
+            return rot((X, D(-35) * (0.5 + 0.5 * math.sin(TAU * t / BEAT)) * e), (Z, s * D(10) * e))
+        return f
+    def d_hips(t):
+        e = d_env(t)
+        return rot((Z, D(7) * math.sin(TAU * t / (BEAT * 2)) * e), (Y, D(9) * math.sin(TAU * t / (BEAT * 2)) * e))
+    def d_spine(t):
+        e = d_env(t)
+        return rot((Z, D(-5) * math.sin(TAU * t / (BEAT * 2)) * e), (Y, D(-8) * math.sin(TAU * t / (BEAT * 2)) * e))
+    def d_head(t):
+        e = d_env(t)
+        return rot((X, D(7) * math.sin(TAU * t / BEAT) * e), (Z, D(5) * math.sin(TAU * t / (BEAT * 2)) * e))
+    def d_leg(side):
+        s = 1 if side == "Left" else -1
+        def f(t):
+            e = d_env(t)
+            return rot((X, D(14) * max(0.0, s * math.sin(TAU * t / (BEAT * 2))) * e), (Z, s * D(4) * e))
+        return f
+    def d_knee(side):
+        s = 1 if side == "Left" else -1
+        def f(t):
+            e = d_env(t)
+            return rot((X, D(-14) * max(0.0, s * math.sin(TAU * t / (BEAT * 2))) * e))
+        return f
+    hips_rest = jpos["Hips"]
+    def d_bounce(t):
+        e = d_env(t)
+        dy = 0.018 * H * (0.5 - 0.5 * math.cos(TAU * t / (BEAT / 2))) * e
+        return hips_rest + np.array([0.0, dy, 0.0])
+    add_clip("dance", DD, {
+        "Hips": d_hips, "Spine": d_spine, "Head": d_head,
+        "LeftUpperArm": d_arm("Left"), "RightUpperArm": d_arm("Right"),
+        "LeftLowerArm": d_elbow("Left"), "RightLowerArm": d_elbow("Right"),
+        "LeftUpperLeg": d_leg("Left"), "RightUpperLeg": d_leg("Right"),
+        "LeftLowerLeg": d_knee("Left"), "RightLowerLeg": d_knee("Right"),
+    }, {"Hips": d_bounce})
+
     while len(blob) % 4:
         blob.append(0)
     gltf.set_binary_blob(bytes(blob))

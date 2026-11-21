@@ -17,7 +17,7 @@ const el = {
   dropzone: $('dropzone'), fileInput: $('fileInput'), preview: $('preview'), dropHint: $('dropHint'),
   generateBtn: $('generateBtn'), stepper: $('stepper'), jobMsg: $('jobMsg'), jobTime: $('jobTime'),
   errorBox: $('errorBox'), errorText: $('errorText'), retryBtn: $('retryBtn'),
-  pauseBtn: $('pauseBtn'), animInfo: $('animInfo'), swayRange: $('swayRange'), speedRange: $('speedRange'),
+  pauseBtn: $('pauseBtn'), clipBtns: $('clipBtns'), animInfo: $('animInfo'), swayRange: $('swayRange'), speedRange: $('speedRange'),
   openLocalBtn: $('openLocalBtn'), downloadBtn: $('downloadBtn'), sampleBtn: $('sampleBtn'), glbInput: $('glbInput'),
   modelMsg: $('modelMsg'), gallery: $('gallery'), galleryEmpty: $('galleryEmpty'),
   canvas: $('viewer'), viewerMsg: $('viewerMsg'), viewerWrap: $('viewerWrap'),
@@ -80,12 +80,16 @@ const loader = new GLTFLoader();
 let currentRoot = null;
 let mixer = null;
 let hasClips = false;
+let idleAction = null;
+let busyAction = null;
 let paused = false;
 let phaseB = 0, phaseS = 0, bobPhase = 0; // accumulated phases (so slider changes never snap)
 let current = { id: null, url: null, name: 'avatar.glb', blobUrl: null };
 
 function disposeCurrent() {
   if (mixer) { mixer.stopAllAction(); mixer = null; }
+  idleAction = null; busyAction = null;
+  if (el.clipBtns) { el.clipBtns.innerHTML = ''; el.clipBtns.hidden = true; }
   if (currentRoot) {
     wrapper.remove(currentRoot);
     currentRoot.traverse((o) => {
@@ -162,13 +166,52 @@ function showModel(gltf, name) {
     const action = mixer.clipAction(clip);
     action.setLoop(THREE.LoopRepeat, Infinity);
     action.play();
+    idleAction = action;
     el.animInfo.textContent = `Clip: ${clip.name || '(unnamed)'}`;
+    setupActionButtons(gltf.animations.filter((c) => c !== clip));
   } else {
     el.animInfo.textContent = 'Procedural idle';
   }
   el.viewerMsg.classList.add('hidden');
   el.downloadBtn.disabled = false;
   el.modelMsg.textContent = name;
+}
+
+// One-shot clips (wave, dance, ...): crossfade idle -> clip, then back to idle when it ends.
+function setupActionButtons(clips) {
+  if (!clips.length || !el.clipBtns) return;
+  for (const clip of clips) {
+    const b = document.createElement('button');
+    b.textContent = clip.name ? clip.name[0].toUpperCase() + clip.name.slice(1) : 'Play';
+    b.addEventListener('click', () => playOnce(clip));
+    el.clipBtns.appendChild(b);
+  }
+  el.clipBtns.hidden = false;
+  mixer.addEventListener('finished', (e) => {
+    if (e.action !== busyAction) return;
+    busyAction = null;
+    e.action.fadeOut(0.4);
+    idleAction.reset().fadeIn(0.4).play();
+    setActionButtonsDisabled(false);
+  });
+}
+
+function setActionButtonsDisabled(v) {
+  el.clipBtns?.querySelectorAll('button').forEach((b) => { b.disabled = v; });
+}
+
+function playOnce(clip) {
+  if (!mixer || !idleAction || busyAction) return;
+  const a = mixer.clipAction(clip);
+  a.reset();
+  a.setLoop(THREE.LoopOnce, 1);
+  a.clampWhenFinished = true;
+  a.play();
+  idleAction.fadeOut(0.4);
+  a.fadeIn(0.4);
+  busyAction = a;
+  setActionButtonsDisabled(true);
+  if (paused) { paused = false; el.pauseBtn.textContent = 'Pause'; }
 }
 
 function loadFromBuffer(buf, name) {
