@@ -2,6 +2,10 @@ import SwiftUI
 
 /// Plays the saved animation for `mood` on the active avatar. Falls back to the idle clip, then to the
 /// still image, so it always shows something.
+///
+/// Every image (still or clip frame) is drawn with its HEIGHT equal to the box, so the avatar is the same
+/// size in all of them. New clips are 16:9, wider than the box: the extra width runs past the box and is
+/// cut off by the stage's own edge, so an arm swinging wide is never chopped in the middle of the screen.
 struct AnimatedAvatar: View {
     let mood: PetMood
     let fallback: UIImage
@@ -10,18 +14,28 @@ struct AnimatedAvatar: View {
     var body: some View {
         let library = AvatarLibrary.shared
         let resolved = resolve(library)
-        Group {
-            if let resolved {
-                TimelineView(.animation) { context in
-                    Image(uiImage: resolved.clip.frames[frameIndex(resolved, at: context.date)])
-                        .resizable().scaledToFit()
+        // The overlay does not affect the layout size, so wide frames can overflow the box.
+        Color.clear
+            .overlay {
+                if let resolved {
+                    TimelineView(.animation) { context in
+                        fitToHeight(resolved.clip.frames[frameIndex(resolved, at: context.date)])
+                    }
+                } else {
+                    fitToHeight(fallback)
                 }
-            } else {
-                Image(uiImage: fallback).resizable().scaledToFit()
             }
+            .onChange(of: mood) { _, _ in start = Date() }
+    }
+
+    private func fitToHeight(_ image: UIImage) -> some View {
+        GeometryReader { box in
+            let aspect = image.size.width / max(image.size.height, 1)
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: box.size.height * aspect, height: box.size.height)
+                .position(x: box.size.width / 2, y: box.size.height / 2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: mood) { _, _ in start = Date() }
     }
 
     private func resolve(_ library: AvatarLibrary) -> (clip: AvatarClip, mood: PetMood)? {

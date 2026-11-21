@@ -20,8 +20,10 @@ Needs a billing-enabled Gemini key (image and video models are not on the free t
   centers the avatar on a 9:16 canvas.
 - `POST /api/animate` - multipart fields `avatar` (the PNG above), `background` (the hex above), `kind`
   (`idle` | `wave` | `dance` | `cry`). Returns `{"fps": 10, "frames": [<base64 transparent PNG>, ...]}`.
-  One short Gemini image-to-video call per request; the clip is decoded to frames and its background
-  removed using the known `background` color.
+  One short Gemini image-to-video call per request, always **16:9 landscape**: the app draws every image at the
+  mascot box's full height, so the wide frame's side edges fall outside the visible box and a swinging arm is only
+  cut off by the box edge, never mid-screen. The clip is decoded to frames and its background removed using the
+  known `background` color. The avatar has the same relative height in the still and in the clips.
 - `GET /health` - `{ok, image_model, video_model, key_configured}`.
 - Errors are JSON `{"detail": "..."}` (400 bad input, 413 too large, 429 quota, 502 Gemini failure, 503 key missing, 504 timeout).
 

@@ -9,7 +9,14 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-CANVAS_W, CANVAS_H = 576, 1024  # 9:16 portrait canvas shared by the avatar and every animation frame
+CANVAS_W, CANVAS_H = 576, 1024  # 9:16 portrait canvas for the still avatar
+VIDEO_W, VIDEO_H = 1024, 576  # 16:9 landscape canvas for the animation clips
+# The app draws every image with its HEIGHT equal to the mascot box. So the avatar must take the same
+# fraction of the height, with the same bottom margin, in both canvases to stay the same size on screen.
+AVATAR_MAX_H = 0.84
+BOTTOM_MARGIN = 0.05
+AVATAR_MAX_W = 0.82
+VIDEO_AVATAR_MAX_W = 0.5  # a wide frame: the avatar stays centered with lots of room for arms
 KEY_LO, KEY_HI = 18.0, 42.0  # RGB distance: fully background below LO, fully subject above HI
 
 
@@ -55,17 +62,27 @@ def key_out_background(img: Image.Image, bg: tuple[int, int, int]) -> Image.Imag
     return Image.fromarray(out, "RGBA")
 
 
-def layout_on_canvas(rgba: Image.Image) -> Image.Image:
-    """Crop to the subject and place it, feet near the bottom, on the shared 9:16 transparent canvas."""
+def _place(rgba: Image.Image, width: int, height: int, max_w: float) -> Image.Image:
+    """Crop to the subject and place it centered, feet near the bottom, on a transparent canvas."""
     box = rgba.getchannel("A").point(lambda v: 255 if v > 12 else 0).getbbox()
     if box:
         rgba = rgba.crop(box)
-    scale = min(CANVAS_W * 0.82 / rgba.width, CANVAS_H * 0.88 / rgba.height)
+    scale = min(width * max_w / rgba.width, height * AVATAR_MAX_H / rgba.height)
     size = (max(1, round(rgba.width * scale)), max(1, round(rgba.height * scale)))
     rgba = rgba.resize(size, Image.LANCZOS)
-    canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
-    canvas.paste(rgba, ((CANVAS_W - size[0]) // 2, CANVAS_H - size[1] - round(CANVAS_H * 0.05)), rgba)
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas.paste(rgba, ((width - size[0]) // 2, height - size[1] - round(height * BOTTOM_MARGIN)), rgba)
     return canvas
+
+
+def layout_on_canvas(rgba: Image.Image) -> Image.Image:
+    """The still avatar: 9:16 portrait canvas."""
+    return _place(rgba, CANVAS_W, CANVAS_H, AVATAR_MAX_W)
+
+
+def layout_for_video(rgba: Image.Image) -> Image.Image:
+    """The first frame of an animation clip: 16:9 landscape canvas, avatar at the same relative height."""
+    return _place(rgba, VIDEO_W, VIDEO_H, VIDEO_AVATAR_MAX_W)
 
 
 def flatten_on_color(rgba: Image.Image, bg: tuple[int, int, int]) -> Image.Image:

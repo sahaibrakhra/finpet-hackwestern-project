@@ -88,7 +88,12 @@ final class AvatarLibrary {
     }
 
     func state(_ id: String, _ mood: PetMood) -> AnimationStatus? {
-        hasAnimation(id, mood) ? .done : status[id]?[mood]
+        if let current = status[id]?[mood], current != .done { return current }
+        return hasAnimation(id, mood) ? .done : status[id]?[mood]
+    }
+
+    func isGenerating(_ id: String) -> Bool {
+        PetMood.allCases.contains { status[id]?[$0] == .running }
     }
 
     func missingAnimations(_ id: String) -> [PetMood] {
@@ -143,8 +148,18 @@ final class AvatarLibrary {
     /// Generates only the animations this avatar does not have yet (each is one paid video call),
     /// all at once. Runs in the library, so closing the editor does not cancel (and waste) them.
     func generateMissingAnimations(for id: String) {
+        generate(missingAnimations(id), for: id)
+    }
+
+    /// Re-creates specific animations (one paid video call each). The old clip keeps playing until the
+    /// new one is saved, and stays if the request fails.
+    func regenerateAnimations(_ moods: [PetMood], for id: String) {
+        generate(moods, for: id)
+    }
+
+    private func generate(_ moods: [PetMood], for id: String) {
         guard let entry = entries.first(where: { $0.id == id }), let png = avatarData(id) else { return }
-        for mood in missingAnimations(id) where status[id]?[mood] != .running {
+        for mood in moods where status[id]?[mood] != .running {
             status[id, default: [:]][mood] = .running
             Task {
                 do {
@@ -152,6 +167,7 @@ final class AvatarLibrary {
                         kind: mood.rawValue, avatarPNG: png, background: entry.background)
                     guard entries.contains(where: { $0.id == id }) else { return }
                     try save(animation, id: id, mood: mood)
+                    clipCache["\(id)/\(mood.rawValue)"] = nil
                     status[id]?[mood] = .done
                 } catch {
                     status[id]?[mood] = .failed(error.localizedDescription)
