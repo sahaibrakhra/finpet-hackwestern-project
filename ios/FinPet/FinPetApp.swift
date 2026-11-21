@@ -69,10 +69,9 @@ struct Pet: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if let photo, let image = UIImage(data: photo) {
-                GeometryReader { proxy in
-                    Image(uiImage: image).resizable().scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height).clipShape(Circle())
-                }
+                // Generated full-body avatar (transparent background): show it whole, never cropped.
+                Image(uiImage: image).resizable().scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
