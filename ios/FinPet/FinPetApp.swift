@@ -118,7 +118,7 @@ struct Pet: View {
         .overlay {
             if photo == nil {
                 MascotAccessory(name: accessory,
-                                pose: AccessoryPose(x: 0.5, crown: 0.39, neck: 0.81, angle: 0),
+                                pose: AccessoryPose(x: 0.5, crown: 0.39, neck: 0.81, angle: 0, headWidth: 0.56),
                                 generated: false)
             }
         }

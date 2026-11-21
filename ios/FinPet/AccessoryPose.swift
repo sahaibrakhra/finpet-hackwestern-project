@@ -6,14 +6,16 @@ struct AccessoryPose {
     var crown: CGFloat
     var neck: CGFloat
     var angle: Double
+    var headWidth: CGFloat
 
-    static let portrait = Self(x: 0.5, crown: 0.15, neck: 0.38, angle: 0)
+    static let portrait = Self(x: 0.5, crown: 0.15, neck: 0.38, angle: 0, headWidth: 0.46)
 
-    init(x: CGFloat, crown: CGFloat, neck: CGFloat, angle: Double) {
+    init(x: CGFloat, crown: CGFloat, neck: CGFloat, angle: Double, headWidth: CGFloat) {
         self.x = x
         self.crown = crown
         self.neck = neck
         self.angle = angle
+        self.headWidth = headWidth
     }
 
     init(image: UIImage) {
@@ -50,6 +52,14 @@ struct AccessoryPose {
         guard let upper = center(from: 0.04, to: 0.16),
               let lower = center(from: 0.19, to: 0.29) else { return }
 
+        let headRows = (top + Int(length * 0.04))...(top + Int(length * 0.23))
+        let spans = headRows.compactMap { row -> Int? in
+            guard let left = rows[row].first, let right = rows[row].last else { return nil }
+            return right - left + 1
+        }.sorted()
+        if !spans.isEmpty {
+            headWidth = min(0.75, max(0.13, CGFloat(spans[spans.count * 2 / 3]) / CGFloat(width)))
+        }
         x = upper / Double(width)
         crown = (Double(top) + length * 0.09) / Double(height)
         neck = (Double(top) + length * 0.32) / Double(height)
@@ -62,7 +72,8 @@ struct AccessoryPose {
         Self(x: x + (other.x - x) * weight,
              crown: crown + (other.crown - crown) * weight,
              neck: neck + (other.neck - neck) * weight,
-             angle: angle + (other.angle - angle) * weight)
+             angle: angle + (other.angle - angle) * weight,
+             headWidth: headWidth + (other.headWidth - headWidth) * weight)
     }
 }
 
@@ -76,10 +87,16 @@ struct MascotAccessory: View {
             let width = bounds.size.width
             let height = bounds.size.height
             if name == "Toque" {
+                // Size against the detected head, with a height cap for the hat's long tassels.
+                let aspect = CGFloat(257) / 480
+                let hatWidth = min(width * pose.headWidth * 1.18, height * 0.65 * aspect)
+                let hatHeight = hatWidth / aspect
+                let brim = CGFloat(0.59)
+                let centerY = max(hatHeight * 0.50, height * pose.crown - hatHeight * (brim - 0.50))
                 Image("MascotToque").resizable().scaledToFit()
-                    .frame(width: width * (generated ? 0.58 : 0.35), height: height * (generated ? 0.24 : 0.40))
-                    .rotationEffect(.degrees(pose.angle))
-                    .position(x: width * pose.x, y: height * pose.crown)
+                    .frame(width: hatWidth, height: hatHeight)
+                    .rotationEffect(.degrees(pose.angle), anchor: UnitPoint(x: 0.5, y: brim))
+                    .position(x: width * pose.x, y: centerY)
             } else if name == "Scarf" {
                 Image("MascotScarf").resizable().scaledToFit()
                     .frame(width: width * (generated ? 0.62 : 0.52), height: height * (generated ? 0.18 : 0.32))
