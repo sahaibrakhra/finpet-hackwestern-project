@@ -65,13 +65,13 @@ struct Pet: View {
     let color: PetColor
     var accessory = "Scarf"
     var photo: Data?
+    var mood: PetMood = .idle
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             if let photo, let image = UIImage(data: photo) {
-                // Generated full-body avatar (transparent background): show it whole, never cropped.
-                Image(uiImage: image).resizable().scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Generated full-body avatar (transparent background): animated when clips are saved, never cropped.
+                AnimatedAvatar(mood: mood, fallback: image)
             } else {
                 // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
