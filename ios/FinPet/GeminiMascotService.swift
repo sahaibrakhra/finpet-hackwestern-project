@@ -7,7 +7,7 @@ import CoreImage
 /// Requires a billing-enabled key from https://aistudio.google.com/apikey (image models are not on the free tier).
 struct GeminiMascotService {
     enum MascotError: LocalizedError {
-        case missingKey, badImage, http(Int, String), noImage
+        case missingKey, badImage, http(Int, String), noImage(String)
 
         var errorDescription: String? {
             switch self {
@@ -15,13 +15,13 @@ struct GeminiMascotService {
             case .badImage: return "Could not read that image."
             case .http(429, _): return "Gemini rate limit or quota reached. Try again shortly."
             case .http(let code, let msg): return "Gemini error \(code): \(msg)"
-            case .noImage: return "Gemini did not return an image. Try a clearer photo."
+            case .noImage(let note): return note.isEmpty ? "Gemini did not return an image. Try a clearer photo." : "Gemini did not return an image: \(note)"
             }
         }
     }
 
     /// Change here if Google retires or renames the image model.
-    static let model = "gemini-2.5-flash-image"
+    static let model = "gemini-3.1-flash-image"
 
     static let prompt = """
     Create a full-body cartoon avatar of the subject in this photo. \
@@ -66,7 +66,9 @@ struct GeminiMascotService {
         }
 
         let decoded = try JSONDecoder().decode(GenerateResponse.self, from: data)
+        var note = ""
         for part in decoded.candidates?.first?.content?.parts ?? [] {
+            if let text = part.text { note += text }
             if let b64 = (part.inlineData ?? part.inline_data)?.data,
                let bytes = Data(base64Encoded: b64),
                let image = UIImage(data: bytes) {
@@ -75,7 +77,7 @@ struct GeminiMascotService {
                 if let png = finalImage.pngData() { return png }
             }
         }
-        throw MascotError.noImage
+        throw MascotError.noImage(note)
     }
 
     /// Cuts out the subject with Vision (iOS 17+). Returns nil if it fails (e.g. on some simulators),
@@ -119,6 +121,7 @@ struct GeminiMascotService {
         struct Part: Decodable {
             let inlineData: InlineData?
             let inline_data: InlineData?
+            let text: String?
         }
         struct Content: Decodable { let parts: [Part]? }
         struct Candidate: Decodable { let content: Content? }

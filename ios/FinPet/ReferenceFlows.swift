@@ -65,7 +65,7 @@ struct MascotEditor: View {
             do {
                 guard let data = try await selection.loadTransferable(type: Data.self),
                       let image = UIImage(data: data), !Task.isCancelled else { return }
-                let scale = min(1, 500 / max(image.size.width, image.size.height))
+                let scale = min(1, 1024 / max(image.size.width, image.size.height))
                 let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
                 let resized = UIGraphicsImageRenderer(size: size).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
                 originalPhoto = resized.jpegData(compressionQuality: 0.8) ?? Data()
