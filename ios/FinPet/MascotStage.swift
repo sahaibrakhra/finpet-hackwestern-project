@@ -12,7 +12,10 @@ struct MascotStage: View {
             let mascotSize = min(stage.size.width * 0.96, height * 0.94)
             ZStack(alignment: .bottom) {
                 // The stage takes the color of the active avatar's background.
-                RoundedRectangle(cornerRadius: 25).fill(library.activeBackground ?? mint)
+                RoundedRectangle(cornerRadius: 25).fill(
+                    mascot.photo != nil && mascot.color != .leaf
+                        ? mascot.color.fill.opacity(0.30) : (library.activeBackground ?? mint)
+                )
                 Circle()
                     .fill(.white.opacity(0.32))
                     .frame(width: height * 0.66)

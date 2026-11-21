@@ -42,7 +42,9 @@ struct MascotEditor: View {
                     Text("“\(sample)”").font(.subheadline).foregroundStyle(muted).multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity).padding(16)
-                .background(library.activeBackground ?? mint, in: RoundedRectangle(cornerRadius: 22))
+                .background(photo.isEmpty || color == .leaf
+                            ? (library.activeBackground ?? mint) : color.fill.opacity(0.30),
+                            in: RoundedRectangle(cornerRadius: 22))
                 controls
             }.padding(20)
         }
@@ -133,7 +135,7 @@ struct MascotEditor: View {
             }
             if let id = library.activeID { animationsCard(id) }
             if !library.entries.isEmpty { avatarPicker }
-            fieldLabel("Colour")
+            fieldLabel(photo.isEmpty ? "Mascot colour" : "Backdrop colour")
             HStack {
                 ForEach(PetColor.allCases, id: \.self) { item in
                     Button {

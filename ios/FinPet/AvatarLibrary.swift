@@ -26,6 +26,20 @@ enum AnimationStatus: Equatable {
 struct AvatarClip {
     let frames: [UIImage]
     let fps: Double
+    let accessoryPoses: [AccessoryPose]
+
+    init(frames: [UIImage], fps: Double) {
+        self.frames = frames
+        self.fps = fps
+        var previous: AccessoryPose?
+        accessoryPoses = frames.map { frame in
+            let detected = AccessoryPose(image: frame)
+            let pose = previous?.smoothed(toward: detected, weight: 0.65) ?? detected
+            previous = pose
+            return pose
+        }
+    }
+
     var duration: Double { Double(frames.count) / max(fps, 1) }
 }
 

@@ -71,8 +71,7 @@ struct Pet: View {
         ZStack(alignment: .bottomTrailing) {
             if let photo, let image = UIImage(data: photo) {
                 // Generated full-body avatar (transparent background): animated when clips are saved, never cropped.
-                AnimatedAvatar(mood: mood, fallback: image)
-                    .colorMultiply(color == .leaf ? .white : color.fill)
+                AnimatedAvatar(mood: mood, fallback: image, accessory: accessory)
             } else {
                 // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
@@ -117,21 +116,11 @@ struct Pet: View {
 
         }
         .overlay {
-            GeometryReader { viewport in
-                let size = min(viewport.size.width, viewport.size.height)
-                let generated = photo != nil
-                if accessory == "Scarf" {
-                    Image("MascotScarf").resizable().scaledToFit()
-                        .frame(width: size * (generated ? 0.29 : 0.52), height: size * 0.32)
-                        .position(x: viewport.size.width * 0.5, y: viewport.size.height * (generated ? 0.38 : 0.81))
-                } else if accessory == "Toque" {
-                    Image("MascotToque").resizable().scaledToFit()
-                        .frame(width: size * (generated ? 0.28 : 0.48), height: size * (generated ? 0.26 : 0.45))
-                        .position(x: viewport.size.width * 0.5, y: viewport.size.height * (generated ? 0.23 : 0.40))
-                }
+            if photo == nil {
+                MascotAccessory(name: accessory,
+                                pose: AccessoryPose(x: 0.5, crown: 0.39, neck: 0.81, angle: 0),
+                                generated: false)
             }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityLabel("Mascot")
