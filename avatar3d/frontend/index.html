@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avatar3D</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Avatar3D</h1>
+    <span id="providerBadge" class="badge">provider: …</span>
+    <span id="stylizeBadge" class="badge badge-on" hidden>Gemini stylize: ON (photo also sent to Google)</span>
+  </header>
+
+  <div id="warnBanner" class="banner" role="alert" hidden>
+    ⚠ Your photo is sent to a third-party public Space.
+  </div>
+
+  <main>
+    <aside>
+      <section class="card" id="uploadCard">
+        <h2>1. Photo</h2>
+        <div id="dropzone" tabindex="0" role="button" aria-label="Choose or drop a photo">
+          <img id="preview" alt="" hidden>
+          <p id="dropHint">Drag &amp; drop a JPG / PNG / WebP here<br>or click to choose (max 10 MB)</p>
+        </div>
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        <button id="generateBtn" class="primary" disabled>Generate avatar</button>
+
+        <ol id="stepper" hidden>
+          <li data-step="queued">Queued</li>
+          <li data-step="removing_background">Removing background</li>
+          <li data-step="stylizing">Stylizing</li>
+          <li data-step="generating_mesh">Generating mesh</li>
+          <li data-step="finalizing">Finalizing</li>
+          <li data-step="done">Done</li>
+        </ol>
+        <p id="jobMsg" class="msg" aria-live="polite"></p>
+        <p id="jobTime" class="muted"></p>
+        <div id="errorBox" class="error" hidden>
+          <span id="errorText"></span>
+          <button id="retryBtn">Retry</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Animation</h2>
+        <div class="row">
+          <button id="pauseBtn">Pause</button>
+          <span id="animInfo" class="muted">No model loaded</span>
+        </div>
+        <label>Sway amount <input id="swayRange" type="range" min="0" max="3" step="0.05" value="1"></label>
+        <label>Breathing speed <input id="speedRange" type="range" min="0.25" max="3" step="0.05" value="1"></label>
+      </section>
+
+      <section class="card">
+        <h2>Model</h2>
+        <div class="row wrap">
+          <button id="openLocalBtn">Open local GLB</button>
+          <button id="downloadBtn" disabled>Download GLB</button>
+          <button id="sampleBtn" hidden>Load animated sample</button>
+        </div>
+        <input id="glbInput" type="file" accept=".glb,.gltf,model/gltf-binary" hidden>
+        <p id="modelMsg" class="muted"></p>
+      </section>
+
+      <section class="card">
+        <h2>Gallery</h2>
+        <ul id="gallery"></ul>
+        <p id="galleryEmpty" class="muted">No avatars yet.</p>
+      </section>
+    </aside>
+
+    <section id="viewerWrap">
+      <canvas id="viewer"></canvas>
+      <div id="viewerMsg">Generate an avatar or open a GLB</div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
