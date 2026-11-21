@@ -9,10 +9,6 @@ let line = Color(red: 0.83, green: 0.88, blue: 0.84)
 let muted = Color(red: 0.32, green: 0.40, blue: 0.36)
 let honey = Color(red: 0.99, green: 0.93, blue: 0.80)
 
-func cash(_ amount: Double) -> String {
-    amount.formatted(.currency(code: "CAD").precision(.fractionLength(amount.rounded() == amount ? 0 : 2)))
-}
-
 extension View {
     func petCard(_ color: Color = .white, radius: CGFloat = 22) -> some View {
         self.padding(16).background(color, in: RoundedRectangle(cornerRadius: radius))
@@ -64,12 +60,11 @@ enum PetColor: String, CaseIterable {
     }
 }
 
-// Shared avatar for Home, Money, lessons, customization, and Friends.
+// Shared avatar for Home, lessons, customization, and Friends.
 struct Pet: View {
     let color: PetColor
     var accessory = "Scarf"
     var photo: Data?
-    var shield = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -133,10 +128,7 @@ struct Pet: View {
                     oval(62, 94, 33, 16, color.fill)
                 }
             }
-            if shield {
-                Image(systemName: "checkmark.shield.fill").font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(.white, forest).padding(5)
-            }
+
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityLabel("Mascot")

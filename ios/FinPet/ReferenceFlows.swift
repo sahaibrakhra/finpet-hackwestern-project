@@ -20,11 +20,11 @@ struct MascotEditor: View {
     private let profiles = ["Just tryna be normal", "Hype bestie", "Vigilante", "Evil", "Quiet coach"]
     private var sample: String {
         switch personality {
-        case "Hype bestie": "We’ve got this. One tiny money win today?"
-        case "Vigilante": "Mission update. Let’s investigate that spending spike."
-        case "Evil": "My brilliant plan? A tiny emergency fund."
-        case "Quiet coach": "Let’s take a moment and see what changed."
-        default: "We went $14 over. Totally normal. Tiny plan?"
+        case "Hype bestie": "We’ve got this. One tiny learning win today?"
+        case "Vigilante": "Mission update. Let’s investigate compound growth."
+        case "Evil": "My brilliant plan? Mastering compound interest."
+        case "Quiet coach": "Let’s unpack one new idea."
+        default: "I’m pondering what we’ll learn today."
         }
     }
 
@@ -173,81 +173,5 @@ struct MascotEditor: View {
                 }
             }
         }.scrollIndicators(.hidden)
-    }
-}
-
-struct Quiz: View {
-    let pet: Pet
-    let completed: () -> Void
-    let close: () -> Void
-    @State private var index = 0
-    @State private var selected: Int?
-    @State private var checked = false
-    private struct Question {
-        var prompt: String
-        var choices: [String]
-        var correct: Int
-        var feedback: String
-    }
-    private let questions = [
-        Question(prompt: "My $1,000 in a TFSA grew to $1,200. How much Canadian tax do I generally owe on the $200?",
-                 choices: ["$0", "About $30", "Depends on my income"], correct: 0,
-                 feedback: "Growth inside a TFSA is generally tax-free in Canada."),
-        Question(prompt: "A friend calls a TFSA a type of stock. What is it?",
-                 choices: ["A Canadian stock", "A registered account", "A loan"], correct: 1,
-                 feedback: "A TFSA is a registered account that can hold eligible investments."),
-        Question(prompt: "I withdrew money from my TFSA this year. When is that amount generally added back to my contribution room?",
-                 choices: ["Immediately", "Never", "At the start of next year"], correct: 2,
-                 feedback: "Withdrawals generally create new room the following calendar year.")
-    ]
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 15) {
-                HStack {
-                    Button(action: close) { Image(systemName: "xmark").font(.title3) }.accessibilityLabel("Close lesson")
-                    ForEach(questions.indices, id: \.self) { step in
-                        Capsule().fill(step <= index ? PetColor.leaf.fill : line).frame(height: 6)
-                    }
-                    Text("\(index + 1)/\(questions.count)").font(.subheadline.bold())
-                }.foregroundStyle(muted)
-                Text("TFSA basics · Question \(index + 1) of \(questions.count)")
-                    .font(.subheadline.bold()).foregroundStyle(muted)
-                HStack(alignment: .bottom, spacing: 8) {
-                    pet.frame(width: 94)
-                    Text(questions[index].prompt).font(.title3.weight(.heavy)).petCard()
-                }
-                ForEach(questions[index].choices.indices, id: \.self) { option in
-                    Button {
-                        selected = option
-                    } label: {
-                        HStack {
-                            Image(systemName: selected == option ? "largecircle.fill.circle" : "circle")
-                                .foregroundStyle(forest).font(.title2)
-                            Text(questions[index].choices[option]).font(.headline)
-                            Spacer()
-                        }.petCard(selected == option ? mint : .white, radius: 16)
-                    }.buttonStyle(.plain).disabled(checked)
-                }
-                if checked {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(selected == questions[index].correct ? "You got it!" : "Here’s how it works").font(.headline)
-                        Text(questions[index].feedback).font(.subheadline)
-                    }.petCard(mint)
-                }
-            }.padding(20)
-        }
-        .foregroundStyle(ink).background(cream.ignoresSafeArea())
-        .safeAreaInset(edge: .bottom) {
-            ActionButton(title: checked ? (index == questions.count - 1 ? "Finish lesson" : "Continue") : "Check",
-                         secondary: selected == nil) {
-                guard selected != nil else { return }
-                if !checked { checked = true }
-                else if index == questions.count - 1 { completed() }
-                else { index += 1; selected = nil; checked = false }
-            }
-            .disabled(selected == nil)
-            .padding(.horizontal, 20).padding(.vertical, 8).background(cream)
-        }
     }
 }
