@@ -46,7 +46,7 @@ struct FinPetRoot: View {
             ScrollView {
                 Group {
                     switch page {
-                    case .home: home(mascotHeight: viewport.size.height * 0.38)
+                    case .home: home(mascotHeight: viewport.size.height * 0.49)
                     case .learn: learn
                     case .money: money
                     case .friends: friends
@@ -135,16 +135,22 @@ struct FinPetRoot: View {
     private func home(mascotHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             heading(petName, streak: true)
-            MascotStage(mascot: pet()).frame(height: mascotHeight)
-            Button {
-                sheet = .setup
-            } label: {
-                Label(photo.isEmpty ? "Upload mascot photo" : "Change mascot photo", systemImage: "camera")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(forest)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
+            MascotStage(mascot: pet())
+                .frame(height: mascotHeight)
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        sheet = .setup
+                    } label: {
+                        Image(systemName: "camera")
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(forest)
+                            .background(.white.opacity(0.85), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(photo.isEmpty ? "Upload mascot photo" : "Change mascot photo")
+                    .padding(12)
+                }
             HStack(alignment: .center, spacing: 16) {
                 Text("$58").font(.system(size: 37, weight: .heavy))
                 VStack(alignment: .leading, spacing: 4) {

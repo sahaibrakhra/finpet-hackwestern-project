@@ -6,6 +6,7 @@ struct MascotStage: View {
     var body: some View {
         GeometryReader { stage in
             let height = stage.size.height
+            let mascotSize = min(stage.size.width * 0.96, height * 0.94)
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 25).fill(mint)
                 Circle()
@@ -23,9 +24,8 @@ struct MascotStage: View {
                     .accessibilityHidden(true)
 
                 mascot
-                    .frame(width: min(stage.size.width * 0.78, height * 0.81),
-                           height: height * 0.81)
-                    .padding(.bottom, height * 0.08)
+                    .frame(width: mascotSize, height: mascotSize)
+                    .padding(.bottom, height * 0.035)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 25))
