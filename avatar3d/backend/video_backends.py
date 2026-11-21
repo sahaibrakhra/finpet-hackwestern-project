@@ -5,8 +5,8 @@ green background, ideally returning to the first frame at the end so clips loop 
 
     generate(first_png, last_png, prompt, seconds, aspect, say) -> path of an .mp4
 
-Backends: ``mock`` (offline, procedural motion for testing), ``veo`` (Google Veo through the Gemini API, paid,
-needs GEMINI_API_KEY), ``hf_wan`` (a public Hugging Face Space on ZeroGPU; free but with a tiny daily quota).
+Backends: ``mock`` (offline, procedural motion for testing), ``omni`` (Gemini Omni through the Gemini Developer
+API, needs GEMINI_API_KEY), ``veo`` (legacy, shut down on the Developer API), ``hf_wan`` (a public Hugging Face Space on ZeroGPU; free but with a tiny daily quota).
 """
 from __future__ import annotations
 
@@ -100,9 +100,114 @@ class MockBackend(VideoBackend):
         return out
 
 
+# ----------------------------------------------------------------------------------------------- omni
+class OmniBackend(VideoBackend):
+    """Gemini Omni video generation on the plain Gemini Developer API (google-genai ``interactions``).
+
+    Replaces Veo here: Google shut the Veo 3.1 preview models down on the Developer API on 2026-10-22. Omni takes a
+    start image and an end image (two-frame interpolation, 3 to 10 seconds), so a clip can return to the sprite
+    pose. The call is synchronous: the video comes back in the response.
+    Written from Google's docs and NOT yet run against a real key; errors are reported verbatim to help fix it.
+    """
+    name = "omni"
+    third_party = True
+    seconds_options = (3, 4, 5, 6, 7, 8, 9, 10)
+
+    def __init__(self) -> None:
+        self.key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not self.key:
+            raise VideoError("GEMINI_API_KEY is not set in .env, so the Gemini Omni video backend cannot run.")
+        self.model = os.getenv("OMNI_MODEL", "gemini-omni-1.2-flash").strip()
+        self.resolution = os.getenv("OMNI_RESOLUTION", "720p").strip()
+        self.timeout_s = float(os.getenv("OMNI_TIMEOUT_S", "600"))
+
+    @staticmethod
+    def _friendly(e: Exception) -> str:
+        t = str(e)
+        low = t.lower()
+        if "429" in low or "quota" in low or "resource_exhausted" in low or ("rate" in low and "limit" in low):
+            return "Google's video API quota or rate limit was hit. Wait a bit, or check your Gemini API plan."
+        if "api key" in low or "api_key_invalid" in low or "401" in low or "unauthenticated" in low:
+            return "The Gemini API key was rejected. Create one at https://aistudio.google.com/apikey and set GEMINI_API_KEY."
+        if "billing" in low or "permission" in low or "403" in low or "paid" in low or "not enabled" in low:
+            return f"This Gemini key is not allowed to generate video (it may need billing enabled). Details: {t[:200]}"
+        if "safety" in low or "blocked" in low or "filtered" in low or "responsible" in low:
+            return "Google's safety filter blocked this image or prompt. Try a different character image."
+        if "not found" in low or "404" in low:
+            return f"The video model was not found. Set OMNI_MODEL in .env to one your key can use. ({t[:140]})"
+        return f"The video service failed: {t[:260]}"
+
+    @staticmethod
+    def _find_video(obj):
+        """Return ('data', bytes) or ('uri', str) from an interaction response (SDK object or dict)."""
+        import base64
+
+        def get(o, k):
+            return o.get(k) if isinstance(o, dict) else getattr(o, k, None)
+
+        ov = get(obj, "output_video")
+        if ov is not None:
+            if get(ov, "data"):
+                return "data", base64.b64decode(get(ov, "data"))
+            if get(ov, "uri"):
+                return "uri", get(ov, "uri")
+        for step in (get(obj, "steps") or []):
+            for part in (get(step, "content") or []):
+                if get(part, "type") == "video":
+                    if get(part, "data"):
+                        return "data", base64.b64decode(get(part, "data"))
+                    if get(part, "uri"):
+                        return "uri", get(part, "uri")
+        return None
+
+    def generate(self, first_png, last_png, prompt, seconds, aspect, say, key=GREEN):
+        import base64
+
+        from google import genai
+
+        client = genai.Client(api_key=self.key)
+        first = base64.b64encode(Path(first_png).read_bytes()).decode()
+        parts = [{"type": "image", "data": first, "mime_type": "image/png"}]
+        text = prompt
+        if last_png:
+            last = base64.b64encode(Path(last_png).read_bytes()).decode()
+            parts.append({"type": "image", "data": last, "mime_type": "image/png"})
+            text = ("The first image is the starting frame and the last image is the ending frame; the character "
+                    "returns to exactly this pose at the end. " + prompt)
+        text += " No dialogue, no music, no sound effects. Keep the camera completely still."
+        parts.append({"type": "text", "text": text})
+        fmt = {"type": "video", "aspect_ratio": aspect, "duration": f"{int(seconds)}s", "resolution": self.resolution}
+
+        say("Sending the sprite to Gemini Omni (this can take a minute or two)...")
+        try:
+            interaction = client.interactions.create(model=self.model, input=parts, response_format=fmt,
+                                                     timeout=self.timeout_s)
+        except TypeError:
+            # older/newer SDK signature: drop the options it does not know
+            interaction = client.interactions.create(model=self.model, input=parts,
+                                                     response_format={"type": "video", "aspect_ratio": aspect})
+        except Exception as e:  # noqa: BLE001
+            raise VideoError(self._friendly(e)) from e
+
+        found = self._find_video(interaction)
+        if not found:
+            raise VideoError("Gemini returned no video (it may have been filtered). Try again or use another image.")
+        out = Path(first_png).with_name(f"{Path(first_png).stem}_omni_{int(time.time())}.mp4")
+        kind, val = found
+        try:
+            if kind == "data":
+                out.write_bytes(val)
+            else:
+                client.files.download(file=val, destination=str(out))
+        except Exception as e:  # noqa: BLE001
+            raise VideoError(f"Could not download the generated video: {str(e)[:160]}") from e
+        return out
+
+
 # ------------------------------------------------------------------------------------------------- veo
 class VeoBackend(VideoBackend):
-    """Google Veo through the Gemini API (google-genai). Paid; set GEMINI_API_KEY.
+    """LEGACY: Google Veo 3.1 preview on the Gemini Developer API, which Google shut down on 2026-10-22.
+    Kept only in case you have Veo access elsewhere; use ``omni`` instead.
 
     The model id is configurable (VEO_MODEL) because Google renames preview models. Veo 3.x produces 4, 6 or 8
     second clips; the last-frame option makes a clip end on the sprite so it can loop.
@@ -236,11 +341,13 @@ class HfWanBackend(VideoBackend):
 def get_video_backend(name: Optional[str] = None) -> VideoBackend:
     name = (name or os.getenv("VIDEO_BACKEND", "auto")).strip().lower()
     if name == "auto":
-        name = "veo" if os.getenv("GEMINI_API_KEY", "").strip() else "mock"
+        name = "omni" if os.getenv("GEMINI_API_KEY", "").strip() else "mock"
     if name == "mock":
         return MockBackend()
+    if name == "omni":
+        return OmniBackend()
     if name == "veo":
         return VeoBackend()
     if name == "hf_wan":
         return HfWanBackend()
-    raise VideoError(f"Unknown VIDEO_BACKEND '{name}'. Use auto, mock, veo or hf_wan.")
+    raise VideoError(f"Unknown VIDEO_BACKEND '{name}'. Use auto, mock, omni, veo or hf_wan.")

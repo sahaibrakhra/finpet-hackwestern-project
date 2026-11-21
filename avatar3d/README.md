@@ -161,10 +161,12 @@ No rig and no mesh. The character becomes a sprite and AI-generated video clips 
 4. ffmpeg (bundled via `imageio-ffmpeg`) keys the background into transparent VP9 WebM. The viewer plays idle on
    loop and plays wave/dance on click, then returns to idle. Buttons enable as each clip finishes.
 
-Backends (`VIDEO_BACKEND`): `mock` (offline demo clips from the sprite, for testing), `veo` (Google Veo via the
-Gemini API, paid), `hf_wan` (a public Hugging Face Wan Space, free but its ZeroGPU quota is tiny). `auto` picks
-`veo` when `GEMINI_API_KEY` is set and `mock` otherwise.
+Backends (`VIDEO_BACKEND`): `mock` (offline demo clips from the sprite, for testing), `omni` (Gemini Omni on the
+Gemini Developer API with a plain API key; it takes a start and an end frame), `hf_wan` (a public Hugging Face Wan
+Space, free but its ZeroGPU quota is tiny). `auto` picks `omni` when `GEMINI_API_KEY` is set and `mock` otherwise.
+Google shut the Veo 3.1 preview models down on the Developer API on 2026-10-22, so `veo` is legacy. The `omni`
+backend was written from Google's docs and has not yet been run against a real key.
 
 **Getting a Gemini API key:** open https://aistudio.google.com/apikey, sign in, click **Create API key**, and put it
-in `.env` as `GEMINI_API_KEY=...`. Veo generally needs billing enabled on the key's project (a paid plan); check
-Google's current pricing and model list, and set `VEO_MODEL` if the default model is unavailable to you.
+in `.env` as `GEMINI_API_KEY=...`. Video generation may need billing enabled on the key's project; check Google's
+current pricing and model list, and set `OMNI_MODEL` if the default model is unavailable to you.

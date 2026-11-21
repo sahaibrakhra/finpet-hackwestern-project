@@ -45,8 +45,8 @@ THIRD_PARTY_WARNING = "Your photo is sent to a third-party public Space."
 
 def _third_party_warning() -> str:
     backend = getattr(getattr(provider, "backend", None), "name", None)
-    if backend == "veo":
-        return "Your photo is sent to Google (Gemini / Veo) to generate the sprite and video clips."
+    if backend in ("omni", "veo"):
+        return "Your photo is sent to Google (Gemini) to generate the sprite and video clips."
     return THIRD_PARTY_WARNING
 
 store = JobStore(STORAGE / "jobs.json")
