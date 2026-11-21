@@ -9,10 +9,13 @@ __all__ = ["Provider", "ProviderError", "get_provider"]
 
 
 def get_provider(name: str | None = None) -> Provider:
-    name = (name or os.getenv("PROVIDER", "mock")).strip().lower()
+    name = (name or os.getenv("PROVIDER", "sprite2d")).strip().lower()
     if name == "mock":
         from .mock import MockProvider
         return MockProvider()
+    if name == "sprite2d":
+        from .sprite2d import Sprite2DProvider
+        return Sprite2DProvider()
     if name == "hf_space":
         from .hf_space import HfSpaceProvider
         return HfSpaceProvider()
@@ -22,4 +25,4 @@ def get_provider(name: str | None = None) -> Provider:
     if name == "local_gpu":
         from .local_gpu import LocalGpuProvider
         return LocalGpuProvider()
-    raise ValueError(f"Unknown PROVIDER '{name}'. Use mock, hf_space, hf_rigged or local_gpu.")
+    raise ValueError(f"Unknown PROVIDER '{name}'. Use sprite2d, mock, hf_space, hf_rigged or local_gpu.")

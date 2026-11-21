@@ -151,10 +151,43 @@ function frameModel(root) {
   root.updateMatrixWorld(true);
 }
 
+// A flat model (a 2D sprite puppet) has almost no depth. Show it unlit and front-on, like a 2D character.
+function isFlatModel(root) {
+  root.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+  return size.y > 0 && size.z < 0.10 * size.y;
+}
+
+function makeSpriteMaterials(root) {
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = false;
+    const old = [].concat(o.material || []);
+    const made = old.map((m) => new THREE.MeshBasicMaterial({
+      map: m.map || null, color: m.map ? 0xffffff : (m.color ? m.color.getHex() : 0xffffff),
+      alphaTest: 0.5, side: THREE.DoubleSide, toneMapped: false,
+    }));
+    old.forEach((m) => m.dispose());
+    o.material = made.length === 1 ? made[0] : made;
+  });
+}
+
+function setViewMode(flat) {
+  controls.enableRotate = !flat;
+  if (flat) {
+    controls.reset?.();
+    camera.position.set(0, TARGET_HEIGHT * 0.5, 4.2);
+    controls.target.set(0, TARGET_HEIGHT * 0.5, 0);
+    controls.update();
+  }
+}
+
 function showModel(gltf, name) {
   disposeCurrent();
   const root = gltf.scene;
-  applyDefaultMaterials(root);
+  const flat = isFlatModel(root);
+  if (flat) makeSpriteMaterials(root); else applyDefaultMaterials(root);
+  setViewMode(flat);
   frameModel(root);
   wrapper.add(root);
   currentRoot = root;
@@ -266,7 +299,7 @@ async function loadConfig() {
     const cfg = await (await fetch('/api/config')).json();
     const provider = cfg.provider || cfg.active_provider || 'unknown';
     el.providerBadge.textContent = `provider: ${provider}`;
-    el.warnBanner.hidden = provider !== 'hf_space';
+    el.warnBanner.hidden = !(cfg.third_party ?? provider === 'hf_space');
     const stylize = cfg.stylize ?? cfg.stylize_enabled ?? cfg.optional_steps?.stylize ?? cfg.optional_steps?.stylize_enabled;
     el.stylizeBadge.hidden = !stylize;
   } catch {

@@ -91,6 +91,7 @@ def get_config():
         "rembg_enabled": pipeline.rembg_enabled(),
         "rig_enabled": pipeline.rig_enabled(),
         "parts_labels": True,
+        "avatar_style": "2d" if provider is not None and provider.name == "sprite2d" else "3d",
         "optional_steps": {"rembg": pipeline.rembg_enabled(), "stylize": pipeline.stylize_enabled(), "rig": pipeline.rig_enabled()},
         "max_upload_mb": MAX_UPLOAD_BYTES // (1024 * 1024),
         "provider_error": provider_error,

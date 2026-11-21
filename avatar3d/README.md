@@ -131,3 +131,20 @@ invalid values return HTTP 400.
 
 Wave and dance clips adapt to the rig: they use only the arms and legs that were found, and each clip is
 automatically toned down if it would stretch the mesh.
+
+## 2D avatar mode (branch `2d-avatar-test`, `PROVIDER=sprite2d`, the default here)
+
+Instead of generating a 3D model, the photo's cut-out becomes a flat, textured 2D puppet:
+
+1. `rembg` removes the background (same as before).
+2. `providers/sprite2d.py` crops to the subject and covers it with a grid of quads (empty cells are dropped), with
+   the photo as the texture. Everything happens on this machine: no GPU, no network, no quota.
+3. `rigging.py` fits the skeleton, using your body-part boxes if you marked them, and **cuts the sprite into one
+   piece per body part** (head, torso, arms, legs) with a one-cell overlap so seams stay hidden. Each part is bound
+   to its own bones, and parts get small depth offsets (arms in front, legs behind) so they don't z-fight.
+4. The same `idle`, `wave` and `dance` clips are baked in. The viewer shows flat models unlit and front-on, with
+   rotation locked, so it reads as a 2D character. Wave and dance run on button click and return to idle.
+
+Tips: marking the body parts matters most for 2D, especially for arms hanging against the torso, where the
+automatic guess is unreliable. `SPRITE_ROWS` (default 110) trades smoothness for file size.
+Set `PROVIDER=hf_space` (or another provider) in `.env` to go back to 3D generation.

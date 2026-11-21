@@ -216,7 +216,7 @@ class Layout:
             leg_seg = self.hw[leg_b0:max(leg_b1, leg_b0 + 1)]
             leg_hw = float(np.median(leg_seg)) if len(leg_seg) else 0.0
             if leg_hw > 0.02 * H and self.torso_hw > 1.35 * leg_hw:
-                cut = leg_hw * 1.08
+                cut = max(leg_hw * 0.98, 0.45 * self.torso_hw)  # arms are the extra width outside the legs
                 band2 = (v[:, 1] > self.y_c + 0.1 * self.Ut) & (v[:, 1] < self.y_neck)
                 for side, sign in (("Left", 1), ("Right", -1)):
                     m = band2 & (ax > cut) & ((v[:, 0] - self.cx) * sign > 0)
@@ -224,6 +224,18 @@ class Layout:
                         self.arm_mask[side] = m
                         self.arm_pts[side] = v[m]
                         self.arms_inferred = True
+
+        # One arm found but not the other: assume the character is symmetric and mirror the arm's extent.
+        for a_side, b_side, sa in (("Left", "Right", 1), ("Right", "Left", -1)):
+            if self.arm_pts[a_side] is not None and self.arm_pts[b_side] is None:
+                pts_a = self.arm_pts[a_side]
+                dd = np.abs(pts_a[:, 0] - self.cx)
+                sb = -sa
+                m = (((v[:, 0] - self.cx) * sb) >= dd.min()) & (((v[:, 0] - self.cx) * sb) <= dd.max()) \
+                    & (v[:, 1] >= pts_a[:, 1].min()) & (v[:, 1] <= pts_a[:, 1].max())
+                if m.sum() >= 40:
+                    self.arm_mask[b_side] = m
+                    self.arm_pts[b_side] = v[m]
 
         # user-marked arm boxes override whatever was auto-detected
         for side, (bx0, bx1, by0, by1) in hints.get("arm_boxes", {}).items():
@@ -541,6 +553,90 @@ def _upright(geoms) -> bool:
     return True
 
 
+
+_GROUPS = ("head", "torso", "LA", "RA", "LL", "RL")
+_ANCHOR = {"head": "Head", "torso": "Hips", "LA": "LeftUpperArm", "RA": "RightUpperArm",
+           "LL": "LeftUpperLeg", "RL": "RightUpperLeg"}
+
+
+def _joint_group(name: str) -> str:
+    left = name.startswith("Left")
+    if name in ("Head", "HeadTop", "Neck"):
+        return "head"
+    if "Arm" in name or "Hand" in name:
+        return "LA" if left else "RA"
+    if "Leg" in name or "Foot" in name or "Toe" in name:
+        return "LL" if left else "RL"
+    return "torso"
+
+
+def _split_sprite_parts(g, joints, ji, ww):
+    """Cut a flat sprite mesh into one piece per body part (cut-out puppet), with a one-cell overlap ring.
+
+    On a single continuous surface, triangles that bridge an arm and the torso get stretched into smeared strands
+    when the arm rotates. Giving every part its own copy of the boundary triangles (rigidly bound to that part)
+    keeps each part intact and hides the seam under the overlap. Returns (trimesh, joint_idx (N,4), weights (N,4)).
+    """
+    import trimesh
+    from trimesh.visual import TextureVisuals
+
+    names = [j[0] for j in joints]
+    idx_of = {n: i for i, n in enumerate(names)}
+    jgrp = np.array([_GROUPS.index(_joint_group(n)) for n in names])
+    v = np.asarray(g.vertices, dtype=np.float64)
+    uv = np.asarray(g.visual.uv, dtype=np.float64)
+    faces = np.asarray(g.faces, dtype=np.int64)
+    ji = ji.astype(np.int64)
+    top = ji[np.arange(len(ji)), ww.argmax(axis=1)]
+    vgrp = jgrp[top]
+
+    counts = np.zeros((len(faces), len(_GROUPS)))
+    for k in range(3):
+        np.add.at(counts, (np.arange(len(faces)), vgrp[faces[:, k]]), 1)
+    fgrp = counts.argmax(axis=1)
+
+    out_v, out_uv, out_f, out_ji, out_ww = [], [], [], [], []
+    base = 0
+    for gi, gname in enumerate(_GROUPS):
+        own = fgrp == gi
+        if not own.any():
+            continue
+        sel = own.copy()
+        if gname != "torso":  # limbs and head carry a one-cell ring of their neighbours' triangles
+            touched = np.zeros(len(v), dtype=bool)
+            touched[faces[own].ravel()] = True
+            sel |= ~own & touched[faces].any(axis=1)
+        used = np.unique(faces[sel].ravel())
+        remap = -np.ones(len(v), dtype=np.int64)
+        remap[used] = np.arange(len(used))
+        out_f.append(remap[faces[sel]] + base)
+        out_v.append(v[used])
+        out_uv.append(uv[used])
+        base += len(used)
+
+        j_g = ji[used].copy()
+        w_g = ww[used].astype(np.float64).copy()
+        in_group = vgrp[used] == gi
+        keep = jgrp[j_g] == gi                       # influences that belong to this part's own bones
+        w_g = np.where(keep, w_g, 0.0)
+        tot = w_g.sum(axis=1)
+        ok = in_group & (tot > 1e-6)
+        w_g[ok] /= tot[ok][:, None]
+        anchor = idx_of[_ANCHOR[gname]]
+        # ring vertices (and any with no influence from this part's bones) follow this part's anchor bone rigidly
+        rigid = ~ok
+        j_g[rigid] = 0
+        w_g[rigid] = 0.0
+        j_g[rigid, 0] = anchor
+        w_g[rigid, 0] = 1.0
+        out_ji.append(j_g)
+        out_ww.append(w_g)
+
+    mesh = trimesh.Trimesh(vertices=np.concatenate(out_v), faces=np.concatenate(out_f), process=False)
+    mesh.visual = TextureVisuals(uv=np.concatenate(out_uv), material=g.visual.material)
+    return mesh, np.concatenate(out_ji).astype(np.uint16), np.concatenate(out_ww).astype(np.float32)
+
+
 def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | None = None) -> dict:
     """Rig ``src`` (GLB) into ``dst``. Returns a small info dict. Raises RigError."""
     import pygltflib as pg
@@ -557,6 +653,21 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
     if not geoms:
         raise RigError("model has no meshes")
     reoriented = _upright(geoms)
+    pre = None  # (joints, layout, hints, joint_idx, weights) when a flat sprite was split into parts
+    if len(geoms) == 1 and hasattr(geoms[0].visual, "uv") and geoms[0].visual.uv is not None:
+        v0 = np.asarray(geoms[0].vertices, dtype=np.float64)
+        if float(np.ptp(v0[:, 2])) < 0.02 * float(np.ptp(v0[:, 1])):
+            hints0 = None
+            if parts and image_path is not None:
+                try:
+                    hints0 = parts_to_hints(parts, Path(image_path), v0)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("could not use body-part labels: %s", e)
+            joints0, layout0 = fit_skeleton(v0, hints0)
+            ji0, ww0 = skin_weights(v0, joints0, layout0)
+            g2, ji2, ww2 = _split_sprite_parts(geoms[0], joints0, ji0, ww0)
+            geoms = [g2]
+            pre = (joints0, layout0, hints0, ji2, ww2)
     flat = trimesh.Scene(geoms)  # world-space geometry, identity node transforms, textures kept
     gltf = pg.GLTF2().load_from_bytes(flat.export(file_type="glb"))
 
@@ -565,13 +676,16 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
     allv = np.concatenate([_read_accessor(gltf, _b0, pr.attributes.POSITION).astype(np.float64)
                            for nd in gltf.nodes if nd.mesh is not None
                            for pr in gltf.meshes[nd.mesh].primitives])
-    hints = None
-    if parts and image_path is not None:
-        try:
-            hints = parts_to_hints(parts, Path(image_path), allv)
-        except Exception as e:  # noqa: BLE001
-            log.warning("could not use body-part labels: %s", e)
-    joints, layout = fit_skeleton(allv, hints)
+    if pre is not None:
+        joints, layout, hints = pre[0], pre[1], pre[2]
+    else:
+        hints = None
+        if parts and image_path is not None:
+            try:
+                hints = parts_to_hints(parts, Path(image_path), allv)
+            except Exception as e:  # noqa: BLE001
+                log.warning("could not use body-part labels: %s", e)
+        joints, layout = fit_skeleton(allv, hints)
 
     blob = bytearray(gltf.binary_blob() or b"")
 
@@ -608,7 +722,21 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
     gltf.skins.append(pg.Skin(name="Armature", joints=list(range(base_idx, base_idx + len(joints))),
                               inverseBindMatrices=ibm_acc, skeleton=base_idx))
 
-    ji_all, ww_all = skin_weights(allv, joints, layout)
+    ji_all, ww_all = (pre[3], pre[4]) if pre is not None else skin_weights(allv, joints, layout)
+    # Flat (2D sprite) meshes have every vertex at the same depth, so a raised arm would z-fight with the torso.
+    # Give each body part a small depth offset: arms in front, then head/neck, torso, and legs behind.
+    flat = float(allv[:, 2].max() - allv[:, 2].min()) < 0.02 * layout.H
+    dz_all = None
+    if flat:
+        zf = np.zeros(len(joints))
+        for i, (jn_, _, _) in enumerate(joints):
+            if "Arm" in jn_ or "Hand" in jn_:
+                zf[i] = 0.030
+            elif jn_ in ("Head", "HeadTop", "Neck"):
+                zf[i] = 0.015
+            elif "Leg" in jn_ or "Foot" in jn_ or "Toe" in jn_:
+                zf[i] = -0.015
+        dz_all = (ww_all * zf[ji_all.astype(int)]).sum(axis=1) * layout.H
     offset = 0
     skinned = 0
     skin_prims = []
@@ -626,6 +754,16 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
             pos = chunk.reshape(acc.count, stride)[:, :12].copy().view(np.float32).reshape(-1, 3)
             ji = ji_all[offset:offset + acc.count]
             ww = ww_all[offset:offset + acc.count]
+            if dz_all is not None:
+                arr = np.frombuffer(blob, dtype=np.uint8)
+                view = arr[start:start + stride * acc.count].reshape(acc.count, stride)
+                zc = view[:, 8:12].copy().view(np.float32).reshape(-1) + dz_all[offset:offset + acc.count].astype(np.float32)
+                view[:, 8:12] = zc.astype(np.float32).view(np.uint8).reshape(-1, 4)
+                if acc.min and acc.max:
+                    acc.min[2], acc.max[2] = float(zc.min()), float(zc.max())
+                pos = pos.copy()
+                pos[:, 2] = zc
+                del view, arr  # release the buffer export so the blob can grow later
             offset += acc.count
             prim.attributes.JOINTS_0 = add_view_accessor(ji, pg.UNSIGNED_SHORT, "VEC4", pg.ARRAY_BUFFER)
             prim.attributes.WEIGHTS_0 = add_view_accessor(ww, pg.FLOAT, "VEC4", pg.ARRAY_BUFFER)
@@ -706,7 +844,8 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
 
     stretch = _Stretch(joints, skin_prims, H)
     clip_gain: dict[str, float] = {}
-    MAX_STRETCH = 0.03  # edges may change by at most 3% of body height before a clip is toned down
+    # edges may change by at most this fraction of body height before a clip is toned down (flat puppets tolerate more)
+    MAX_STRETCH = 0.07 if flat else 0.03
 
     def add_clip(name: str, dur: float, rot_fn, trans_fn=None, fps: int = 30) -> None:
         ts = np.arange(0, int(round(dur * fps)) + 1, dtype=np.float64) / fps
@@ -849,4 +988,4 @@ def rig_glb(src: Path, dst: Path, parts: dict | None = None, image_path: Path | 
     gltf.save_binary(str(dst))
     return {"joints": len(joints), "primitives": skinned, "reoriented": reoriented,
             "legs": layout.has_legs, "arms": [sd for sd in ("Left", "Right") if layout.arm_found.get(sd)],
-            "clip_gain": clip_gain, "labels_used": hints is not None}
+            "clip_gain": clip_gain, "labels_used": hints is not None, "flat": flat}
