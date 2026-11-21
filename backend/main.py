@@ -43,7 +43,8 @@ ANIMATION_BASE = (
     "Animate this exact cartoon character, keeping its design, proportions and colors identical. "
     "Fixed static camera, no zoom, no cuts. The background must stay the exact same flat single "
     "color for the whole clip, with no ground, floor, shadow, particles or text. "
-    "The whole character stays fully in frame. "
+    "The whole character stays fully in frame at all times, including hands and arms while they move: "
+    "keep every limb well inside the frame edges with empty space on both sides. "
 )
 ANIMATIONS = {
     "idle": "The character stands and idles: gentle breathing, a soft sway, a slow blink, relaxed arms.",
@@ -242,7 +243,8 @@ def create_animation(
     except (UnidentifiedImageError, OSError, ValueError):
         raise HTTPException(400, "That avatar is not a readable image.")
 
-    still = media.png_bytes(media.flatten_on_color(rgba, bg))
+    # Re-fit onto the canvas with side margin (a no-op for new avatars; shrinks older, wider ones).
+    still = media.png_bytes(media.flatten_on_color(media.layout_on_canvas(rgba), bg))
     mp4 = _generate_video(still, ANIMATIONS[kind])
     fps = int(_env("ANIM_FPS", "10"))
     try:

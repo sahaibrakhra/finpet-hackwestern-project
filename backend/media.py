@@ -10,6 +10,9 @@ from PIL import Image
 from scipy import ndimage
 
 CANVAS_W, CANVAS_H = 576, 1024  # 9:16 portrait canvas shared by the avatar and every animation frame
+# The avatar only fills part of the canvas so waving / dancing arms have room and are not cut off
+# at the video frame edge (pixels outside the frame are never generated, so they cannot be recovered).
+AVATAR_MAX_W, AVATAR_MAX_H = 0.50, 0.84
 KEY_LO, KEY_HI = 18.0, 42.0  # RGB distance: fully background below LO, fully subject above HI
 
 
@@ -60,7 +63,7 @@ def layout_on_canvas(rgba: Image.Image) -> Image.Image:
     box = rgba.getchannel("A").point(lambda v: 255 if v > 12 else 0).getbbox()
     if box:
         rgba = rgba.crop(box)
-    scale = min(CANVAS_W * 0.82 / rgba.width, CANVAS_H * 0.88 / rgba.height)
+    scale = min(CANVAS_W * AVATAR_MAX_W / rgba.width, CANVAS_H * AVATAR_MAX_H / rgba.height)
     size = (max(1, round(rgba.width * scale)), max(1, round(rgba.height * scale)))
     rgba = rgba.resize(size, Image.LANCZOS)
     canvas = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
