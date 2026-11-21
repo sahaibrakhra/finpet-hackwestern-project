@@ -72,6 +72,7 @@ struct Pet: View {
             if let photo, let image = UIImage(data: photo) {
                 // Generated full-body avatar (transparent background): animated when clips are saved, never cropped.
                 AnimatedAvatar(mood: mood, fallback: image)
+                    .colorMultiply(color == .leaf ? .white : color.fill)
             } else {
                 // Replace the still renderer here when the animated avatar is ready.
                 Canvas { ctx, size in
@@ -109,25 +110,28 @@ struct Pet: View {
                     oval(34, 76, 10, 5, .pink.opacity(0.55), border: false)
                     oval(80, 76, 10, 5, .pink.opacity(0.55), border: false)
                     shape { path in path.move(to: p(55, 78)); path.addQuadCurve(to: p(67, 78), control: p(61, 84)) }
-                    if accessory == "Scarf" {
-                        shape(PetColor.sunny.fill) { path in
-                            path.move(to: p(31, 85)); path.addQuadCurve(to: p(91, 85), control: p(60, 95))
-                            path.addLine(to: p(91, 93)); path.addQuadCurve(to: p(31, 93), control: p(60, 106))
-                            path.closeSubpath()
-                        }
-                    }
-                    if accessory == "Toque" { oval(37, 33, 49, 12, PetColor.berry.fill) }
-                    if accessory == "Grad cap" {
-                        shape(ink) { path in
-                            path.move(to: p(36, 39)); path.addLine(to: p(61, 30)); path.addLine(to: p(86, 39))
-                            path.addLine(to: p(61, 47)); path.closeSubpath()
-                        }
-                    }
                     oval(27, 94, 33, 16, color.fill)
                     oval(62, 94, 33, 16, color.fill)
                 }
             }
 
+        }
+        .overlay {
+            GeometryReader { viewport in
+                let size = min(viewport.size.width, viewport.size.height)
+                let generated = photo != nil
+                if accessory == "Scarf" {
+                    Image("MascotScarf").resizable().scaledToFit()
+                        .frame(width: size * (generated ? 0.29 : 0.52), height: size * 0.32)
+                        .position(x: viewport.size.width * 0.5, y: viewport.size.height * (generated ? 0.38 : 0.81))
+                } else if accessory == "Toque" {
+                    Image("MascotToque").resizable().scaledToFit()
+                        .frame(width: size * (generated ? 0.28 : 0.48), height: size * (generated ? 0.26 : 0.45))
+                        .position(x: viewport.size.width * 0.5, y: viewport.size.height * (generated ? 0.23 : 0.40))
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityLabel("Mascot")

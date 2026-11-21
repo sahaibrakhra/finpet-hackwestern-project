@@ -214,11 +214,11 @@ struct FinPetRoot: View {
                 }
                 .overlay(alignment: .topTrailing) {
                     Button { sheet = .setup } label: {
-                        Image(systemName: "camera").font(.headline).frame(width: 44, height: 44)
+                        Image(systemName: "slider.horizontal.3").font(.headline).frame(width: 44, height: 44)
                             .foregroundStyle(forest).background(.white.opacity(0.85), in: Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(photo.isEmpty ? "Upload mascot photo" : "Change mascot photo")
+                    .accessibilityLabel("Customize mascot")
                     .padding(12)
                 }
             streakBoard

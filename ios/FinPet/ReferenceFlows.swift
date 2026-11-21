@@ -10,7 +10,7 @@ struct MascotEditor: View {
     let close: () -> Void
     @State private var selection: PhotosPickerItem?
     @State private var photoError = false
-    @State private var step = 1
+    @FocusState private var editingName: Bool
     @State private var originalPhoto = Data()
     @State private var generating = false
     @State private var aiError: String?
@@ -32,12 +32,7 @@ struct MascotEditor: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 17) {
-                HStack {
-                    Text("Step \(step) of 2").font(.subheadline.bold()).foregroundStyle(muted)
-                    Capsule().fill(forest).frame(height: 6)
-                    Capsule().fill(step == 2 ? forest : line).frame(height: 6)
-                }
-                Text(step == 1 ? "Make it yours" : "Meet \(petName)").font(.system(size: 31, weight: .heavy))
+                Text("Customize your mascot").font(.system(size: 31, weight: .heavy))
                 VStack(spacing: 5) {
                     Pet(color: color, accessory: accessory, photo: photo.isEmpty ? nil : photo, mood: previewMood)
                         .frame(width: photo.isEmpty ? 140 : 190)
@@ -48,19 +43,20 @@ struct MascotEditor: View {
                 }
                 .frame(maxWidth: .infinity).padding(16)
                 .background(library.activeBackground ?? mint, in: RoundedRectangle(cornerRadius: 22))
-                if step == 1 { controls }
+                controls
             }.padding(20)
         }
         .foregroundStyle(ink).background(cream.ignoresSafeArea())
+        .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                ActionButton(title: step == 1 ? "Start with \(petName)" : "Go to Home") {
-                    if step == 1 { step = 2 } else { close() }
-                }
-                if step == 2 {
-                    Button("Back to customization") { step = 1 }.font(.subheadline).foregroundStyle(forest)
-                }
+            ActionButton(title: "Done") {
+                editingName = false
+                name = petName
+                close()
             }.padding(.horizontal, 20).padding(.vertical, 8).background(cream)
+        }
+        .onAppear {
+            if accessory == "Grad cap" { accessory = "None" }
         }
         .task(id: selection) {
             guard let selection else { return }
@@ -100,6 +96,13 @@ struct MascotEditor: View {
 
     private var controls: some View {
         Group {
+            fieldLabel("Name")
+            TextField("Mascot name", text: $name)
+                .focused($editingName)
+                .submitLabel(.done)
+                .onSubmit { editingName = false }
+                .padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
+                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line).allowsHitTesting(false) }
             HStack(spacing: 10) {
                 Image(systemName: "camera").frame(width: 37, height: 37).background(mint, in: Circle())
                 VStack(alignment: .leading) {
@@ -130,9 +133,6 @@ struct MascotEditor: View {
             }
             if let id = library.activeID { animationsCard(id) }
             if !library.entries.isEmpty { avatarPicker }
-            fieldLabel("Name")
-            TextField("Loonie", text: $name).padding(11).background(.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(line) }
             fieldLabel("Colour")
             HStack {
                 ForEach(PetColor.allCases, id: \.self) { item in
@@ -148,7 +148,7 @@ struct MascotEditor: View {
                 }
             }
             fieldLabel("Accessory")
-            options(["None", "Scarf", "Toque", "Grad cap"], selected: $accessory)
+            options(["None", "Scarf", "Toque"], selected: $accessory)
             fieldLabel("Personality")
             options(profiles, selected: $personality)
         }

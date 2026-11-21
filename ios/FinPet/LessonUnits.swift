@@ -21,6 +21,14 @@ extension Lesson {
     var source: URL? {
         let path: String
         switch id {
+        case _ where id.hasPrefix("tfsa-"):
+            path = "revenue-agency/services/tax/individuals/topics/tax-free-savings-account/contributing/calculate-room.html"
+        case _ where id.hasPrefix("rrsp-") && !["rrsp-withdrawals", "rrsp-compare"].contains(id):
+            path = "revenue-agency/services/tax/individuals/topics/rrsps-related-plans/registered-retirement-savings-plan-rrsp.html"
+        case _ where id.hasPrefix("fhsa-"):
+            path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account.html"
+        case _ where id.hasPrefix("invest-"):
+            path = "financial-consumer-agency/services/savings-investments/investing-basics.html"
         case "tfsa":
             path = "revenue-agency/services/tax/individuals/topics/tax-free-savings-account/what.html"
         case "tfsa-room", "tfsa-timing":
@@ -42,6 +50,7 @@ extension Lesson {
     }
 
     var example: LessonExample {
+        if let workshop = PracticeWorkshop.byID[id] { return workshop.example }
         if let applied = LessonLibrary.appliedExamples[id] { return applied }
         return switch id {
         case "tfsa":
