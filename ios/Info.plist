@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
 	<!-- Where the FinPet backend runs: your Northflank public URL (https, no trailing slash), e.g.
-	     https://p01--finpet--abc123.code.run . For a local server use http://localhost:8000 (simulator)
+	     https://p01--backend--7vn56yvjf2r4.code.run . For a local server use http://localhost:8000 (simulator)
 	     or your computer's LAN IP (real iPhone). -->
 	<key>FinPetBackendURL</key>
-	<string>https://REPLACE-WITH-YOUR-NORTHFLANK-URL</string>
+	<string>https://p01--backend--7vn56yvjf2r4.code.run</string>
 	<!-- Allow plain-HTTP calls to localhost / local-network IPs during development. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
