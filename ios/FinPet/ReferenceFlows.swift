@@ -54,14 +54,19 @@ struct MascotEditor: View {
             HStack {
                 Text("Customize mascot").font(.headline)
                 Spacer()
-                Button("Close") {
+                Button {
                     editingName = false
                     name = petName
                     close()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(palette.accent)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .font(.body.weight(.semibold))
-                .foregroundStyle(palette.accent)
-                .frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close customization")
             }
             .padding(.horizontal, 20)
             .background(palette.paper)
