@@ -126,15 +126,13 @@ struct Quiz: View {
                     } else {
                         Spacer()
                     }
-                    pet.frame(width: 49)
+                    if !finished { pet.frame(width: 49) }
                 }.foregroundStyle(muted)
                 if (started || isReview) && !finished { lessonTabs }
                 if briefing {
                     briefingContent
                 } else if finished {
-                    Text(isReview ? "Review complete" : "Challenge complete").font(.largeTitle.bold())
-                    resultPet.frame(width: 120)
-                    Text("\(score) of \(questionOrder.count) correct").font(.headline)
+                    resultContent
                 } else {
                     questionContent
                 }
@@ -147,6 +145,38 @@ struct Quiz: View {
                 .disabled(!briefing && selected == nil && !finished)
                 .padding(.horizontal, 20).padding(.vertical, 8).background(palette.paper)
         }
+    }
+
+    private var resultContent: some View {
+        VStack(spacing: 10) {
+            Text(isReview ? "Review Complete!" : "Lesson Complete!")
+                .font(.system(.largeTitle, weight: .black))
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+
+            GeometryReader { stage in
+                let size = min(stage.size.width, stage.size.height)
+                resultPet
+                    .frame(width: size, height: size)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+            }
+            .containerRelativeFrame(.vertical) { height, _ in height * 0.60 }
+
+            Text(resultRemark)
+                .font(.title3.weight(.semibold))
+                .multilineTextAlignment(.center)
+            Text("\(score) of \(questionOrder.count) correct")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(muted)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var resultRemark: String {
+        if score == questionOrder.count { return "Flawless. I was ready to explain, but sure, steal my thunder." }
+        if score * 2 >= questionOrder.count { return "A few plot twists, but you stuck the landing." }
+        return "Well, that was a plot twist. We’ll get them in review."
     }
 
     /// Under 50% correct: sad (loops). 50% or more: dance (plays once, holds the last frame).
