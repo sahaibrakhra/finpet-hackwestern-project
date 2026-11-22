@@ -19,6 +19,20 @@ struct LessonExample {
 
 extension Lesson {
     var source: URL? {
+        switch id {
+        case "invest-index":
+            return URL(string: "https://www.spglobal.com/spdji/en/methodology/article/sp-us-indices-methodology/")
+        case "invest-holdings":
+            return URL(string: "https://www.getsmarteraboutmoney.ca/tool-embeds/etf-facts/")
+        case "plan-housing-costs":
+            return URL(string: "https://www.cmhc-schl.gc.ca/professionals/housing-markets-data-and-research/housing-research/core-housing-need/identifying-core-housing-need")
+        case "plan-annuity":
+            return URL(string: "https://www.canada.ca/en/financial-consumer-agency/services/retirement-planning/annuities.html")
+        case "compounding":
+            return URL(string: "https://www.canada.ca/en/financial-consumer-agency/services/banking/bank-accounts/savings-account.html")
+        default:
+            break
+        }
         let path: String
         switch id {
         case _ where id.hasPrefix("tfsa-"):
@@ -41,7 +55,7 @@ extension Lesson {
             path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/tax-deductions-fhsa-contributions.html"
         case "fhsa-withdrawals", "fhsa-plan":
             path = "revenue-agency/services/tax/individuals/topics/first-home-savings-account/withdrawals-transfers-out-your-fhsas.html"
-        case "investments", "fund-fees", "portfolio":
+        case "investments", "fund-fees", "stock-ownership", "bond-lending":
             path = "financial-consumer-agency/services/savings-investments/investing-basics.html"
         default:
             path = "financial-consumer-agency/services/financial-basics.html"
@@ -50,6 +64,7 @@ extension Lesson {
     }
 
     var example: LessonExample {
+        if let everyday = EverydayLessons.byID[id] { return everyday.example }
         if let workshop = PracticeWorkshop.byID[id] { return workshop.example }
         if let applied = LessonLibrary.appliedExamples[id] { return applied }
         return switch id {
@@ -92,9 +107,9 @@ extension Lesson {
             LessonExample("A simple one-year city bond", [("Amount you lend", "$100"), ("Interest promised", "$4"),
                 ("Total if both are paid", "$104")], "You get the $100 loan back plus the $4 paid for lending.")
         case "investments":
-            LessonExample("Same bakery loss, two choices", [("Bakery shares fall", "20%"),
-                ("$100 in the bakery alone", "$20 loss"), ("$100 in a fund with $10 tied to the bakery", "$2 loss")],
-                "Only the bakery shares fall in this example.")
+            LessonExample("One company or a basket?", [("One bakery stock", "Depends heavily on the bakery"),
+                ("A fund with many types of businesses", "The bakery is only one part")],
+                "Owning a mix can spread risk, while a broad market fall can affect the whole fund.")
         case "fund-fees":
             LessonExample("Same hypothetical $1,000 invested", [("Gross gain at 5%", "$50"),
                 ("Illustrative fee at 1%", "$10"), ("Illustrative fee at 0.2%", "$2")],
@@ -163,11 +178,11 @@ extension LessonLibrary {
         "Ongoing fees reduce the amount you keep. Compare fees alongside holdings and risk, and check for trading charges.",
         "To estimate a fee in this simplified example, multiply the starting investment amount by the fee percentage."
     ], questions: [
-        Question("What is 1% of $1,000?", ["$1", "$10", "$100"], 1, "Multiply $1,000 by 0.01."),
-        Question("What is 0.2% of $1,000?", ["$2", "$20"], 0, "Multiply $1,000 by 0.002."),
-        Question("With $50 of gross gain and a $10 illustrative fee, what remains?", ["$40", "$50", "$60"], 0, "The fee reduces the gain by $10."),
-        Question("Can two funds have different holdings even if they charge the same fee?", ["Yes", "No"], 0, "Funds can follow different strategies at the same fee level."),
-        Question("What should you compare besides fees?", ["Holdings and risk", "Just the fund’s name"], 0, "Holdings and risk describe what you’re investing in.")
+        Question("Two funds follow the same index and have similar trading costs. What can a lower ongoing fee leave you with, all else equal?", ["More of the return", "A guarantee the fund will rise"], 0, "Fees reduce what stays invested. A lower fee can let you keep more of the same gross return."),
+        Question("One fund shows a 0.5% fee. On a simplified $2,000 starting balance, about how much is that?", ["$1", "$10", "$100"], 1, "Half a percent of $2,000 is $10 in this simplified example."),
+        Question("Your statement shows a return after fees. Should you subtract those same fees again?", ["Yes, always", "No, the stated result already includes those fees"], 1, "Count each fee once."),
+        Question("A cheaper fund follows a different market. Is the lower fee enough to pick it?", ["Yes, because holdings no longer matter", "No, check whether the fund owns what you want"], 1, "Costs matter, and so do the investments you get for those costs."),
+        Question("Where can you start checking the cost of a Canadian exchange-traded fund?", ["The cost section of its ETF Facts document", "Its logo"], 0, "Read the fund summary and watch for separate trading charges too.")
     ])
 }
 

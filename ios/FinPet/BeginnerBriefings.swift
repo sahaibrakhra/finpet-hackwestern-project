@@ -71,7 +71,7 @@ extension Lesson {
                     BriefingWord("Current balance", "The amount on the account right now. It can include new purchases since the last bill.", searching: ["current balance", "posted balance"]),
                     BriefingWord("Issuer", "The bank or company that provides the card.", searching: ["issuer", "agreement"])
                 ])
-        case "stock-ownership", "bond-lending", "investments", "fund-fees", "portfolio",
+        case "stock-ownership", "bond-lending", "investments", "fund-fees",
              _ where id.hasPrefix("invest-"):
             BeginnerGuide(situation: "Imagine you have money you won’t need right away and are comparing ways to invest it. Your choice affects how much it might grow, what it costs, and how much it might fall.",
                 words: [
@@ -106,7 +106,7 @@ extension Lesson {
 
     private var languageInLesson: String {
         ([title, beginnerGuide.situation, example.title, example.note] + plainLanguageSteps +
-         example.rows.flatMap { [$0.label, $0.value] } +
+         extraExplanation + example.rows.flatMap { [$0.label, $0.value] } +
          questions.flatMap { [$0.prompt, $0.feedback] + $0.choices }).joined(separator: " ")
     }
 

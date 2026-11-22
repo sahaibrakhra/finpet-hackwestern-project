@@ -25,13 +25,17 @@ struct Question {
 enum LessonLibrary {
     static let daily = units.flatMap(\.lessons)
     static let units = [
-        LearningUnit(title: "Investing basics", lessons: [stockOwnership, bondLending, investments, fundFees, portfolio] +
-                     PracticeWorkshop.investing.filter { !["invest-risk-cash", "invest-fees-after"].contains($0.id) }.map(\.lesson)),
+        LearningUnit(title: "Investing basics", lessons: [
+            EverydayLessons.saveOrInvest.lesson, stockOwnership, bondLending, investments,
+            EverydayLessons.index.lesson, EverydayLessons.holdings.lesson, fundFees,
+            EverydayLessons.accountAndFund.lesson, EverydayLessons.firstOrder.lesson, EverydayLessons.routine.lesson
+        ]),
         LearningUnit(title: "Tax-Free Savings Accounts", lessons: [tfsa, tfsaRoom, tfsaTiming] + PracticeWorkshop.tfsa.map(\.lesson)),
         LearningUnit(title: "Registered Retirement Savings Plans", lessons: [rrsp, rrspWithdrawals, rrspCompare] + PracticeWorkshop.rrsp.map(\.lesson)),
         LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals, fhsaPlan] + PracticeWorkshop.fhsa.map(\.lesson)),
         LearningUnit(title: "Credit and borrowing", lessons: [credit, cardPayment, loans] + PracticeWorkshop.credit.map(\.lesson)),
-        LearningUnit(title: "Long-term planning", lessons: [compounding, retirement, retirementGap] + PracticeWorkshop.planning.map(\.lesson))
+        LearningUnit(title: "Long-term planning", lessons: [EverydayLessons.housing.lesson, compounding, EverydayLessons.annuity.lesson, retirement, retirementGap] +
+                     PracticeWorkshop.planning.map(\.lesson))
     ]
 
     static let tfsa = Lesson(id: "tfsa", title: "TFSA basics", briefing: [
@@ -73,22 +77,22 @@ enum LessonLibrary {
     static let bondLending = Lesson(id: "bond-lending", title: "Lend money by buying a bond", briefing: [
         "A city needs money for a bridge. Leo buys a $100 bond from the city. Leo is lending $100 to the city, which promises $4 in interest plus the $100 back in a year.",
         "The date when the city is scheduled to repay the $100 is called maturity. If Leo keeps the bond until then and the city pays as promised, Leo receives $104. The extra $4 is the gain. The other $100 is Leo’s original money coming back.",
-        "If Leo needs cash sooner, Leo can try to sell the bond. The next buyer gets the city’s promised payments. If similar new bonds pay more interest, the buyer may offer less than $100 for Leo’s bond. In that case, Leo’s sale price is the buyer’s offer, not the $100 the city promises to repay at maturity."
+        "Buying a bond makes Leo a lender. Buying a stock would make Leo an owner. A promise to repay still carries risk, and Leo may not get the original amount back if the bond is sold before the scheduled date."
     ], questions: [
         Question("You buy a bond from a city that is building a bridge. What are you doing?", ["Buying part of the city", "Lending money to the city"], 1, "A bond is a loan to the borrower."),
         Question("The city borrows $100 and promises $4 of interest. If both are paid, how much do you receive altogether?", ["$4", "$100", "$104"], 2, "You receive your $100 back plus $4 of interest."),
         Question("The bond reaches maturity. What does that mean?", ["The scheduled repayment date arrived", "You become a part-owner"], 0, "Maturity is the scheduled date for paying back the original amount."),
         Question("True or false? The borrower might fail to make a promised payment.", ["True", "False"], 0, "A promise to pay can be broken if the borrower cannot pay."),
-        Question("Similar new bonds pay more interest. Why might a buyer offer less than $100 for Leo’s bond?", ["Leo’s bond still promises less interest than the new bonds", "The city must raise the interest on Leo’s bond"], 0, "A buyer comparing the old and new bonds may want a lower purchase price to make up for the lower payments.")
+        Question("Which purchase makes you a lender instead of a part-owner?", ["A bond", "A stock"], 0, "A bond is a loan. A stock is an ownership share.")
     ])
 
     static let investments = Lesson(id: "investments", title: "Buy a basket of investments", briefing: [
         "Asha has $100 to invest. Asha could buy shares in one bakery or buy part of a fund that owns shares in a bakery, a grocer, and other companies. A fund combines money from many investors to buy those shares.",
-        "Compare the same bakery loss. If Asha puts $100 directly into bakery shares and the shares fall 20%, Asha loses $20. If Asha puts $100 into a fund and only $10 of that investment is tied to the bakery, the bakery’s 20% drop costs $2, assuming the other companies stay flat.",
+        "If the bakery closes, someone with all their money in the bakery is heavily affected. For someone who owns a fund with lots of different businesses, the bakery is only one part of the investment.",
         "That spreading is called diversification. It softens the impact of one company falling, but the fund can still lose money if many companies fall. An exchange-traded fund (ETF) is a fund that you can buy or sell on a stock exchange, a marketplace for investments."
     ], questions: [
         Question("What do you buy when you buy part of a fund?", ["One company chosen at random", "A share in a basket of investments"], 1, "The fund owns the basket. You own a part of the fund."),
-        Question("Asha has $10 tied to the bakery through the fund. Bakery shares fall 20% and everything else stays flat. How much does Asha lose?", ["$20", "$2", "$10"], 1, "The 20% drop applies only to the $10 tied to the bakery. Twenty percent of $10 is $2."),
+        Question("A fund holds ten bakeries that all operate in one city. What risk might it still have?", ["A problem affecting local bakeries could affect much of the fund", "No risk at all, because ten is more than one"], 0, "Diversification depends on what is different across the investments, not just how many there are."),
         Question("You own one bakery stock and it falls. Why might a broad basket fall less?", ["The bakery is only one piece of the basket", "Funds can’t lose money"], 0, "The other holdings can do differently from the bakery."),
         Question("True or false? A fund can lose value even if it holds many companies.", ["True", "False"], 0, "A drop can affect many companies at once."),
         Question("Two funds have different names. How can you tell if they mostly own the same things?", ["Compare what they hold", "Compare the logos"], 0, "The list of investments shows whether the baskets overlap.")
@@ -99,9 +103,9 @@ enum LessonLibrary {
         "At a hypothetical 10% annual return, $100 becomes $110 after a year and $121 after two years. The second year earns growth on both the original amount and the first year’s growth.",
         "Actual returns can vary or be negative. Fees and inflation can change what you keep and what it buys."
     ], questions: [
-        Question("At a hypothetical 10% return, what does $100 become after one year?", ["$110", "$120", "$90"], 0, "Ten percent of $100 is $10, giving $110."),
-        Question("At the same hypothetical rate, what does $110 become in the next year?", ["$120", "$121", "$111"], 1, "Ten percent of $110 is $11, giving $121."),
-        Question("What made the second year’s gain $11 instead of $10?", ["A guaranteed bonus", "A larger starting balance"], 1, "The first year’s growth stayed invested."),
+        Question("Two friends save the same amount, but one starts a few years earlier. What advantage can starting earlier give?", ["More time for earlier growth to earn growth", "A guaranteed higher interest rate"], 0, "The head start gives the balance longer to compound."),
+        Question("You earn $5 in interest and leave it in your savings account. What can happen next?", ["Only the original deposit can earn interest", "Future interest can be earned on that $5 as well"], 1, "Leaving interest in the account makes it part of the balance used to calculate future interest."),
+        Question("An account has $200 and earns 5% in a simplified year. How much is added?", ["$5", "$10", "$20"], 1, "Five percent of $200 is $10. If it stays in the account, next year starts at $210."),
         Question("What effect can fees have over time?", ["They leave less invested to compound", "They guarantee gains"], 0, "Fees reduce the balance that can earn future growth."),
         Question("Does a 10% example promise that you’ll earn 10%?", ["Yes", "No"], 1, "It illustrates the math. Real returns vary.")
     ])
@@ -200,6 +204,10 @@ struct Quiz: View {
             Text("\(score) of \(questionOrder.count) correct")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(muted)
+            if !isReview, let next = LessonLibrary.adjacent(to: lesson.id).next {
+                Text("Next in this unit: " + next.title)
+                    .font(.footnote).foregroundStyle(muted).multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .task {
@@ -243,8 +251,14 @@ struct Quiz: View {
     private var briefingContent: some View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
+            let everyday = EverydayLessons.byID[lesson.id]
             let steps = lesson.plainLanguageSteps
             let visual = LessonWalkthrough.forLesson(lesson.id)
+            let deeper = lesson.extraExplanation
+            if let previous = LessonLibrary.adjacent(to: lesson.id).previous {
+                Text("Previous in this unit: " + previous.title)
+                    .font(.footnote).foregroundStyle(muted)
+            }
             if let walkthrough = visual {
                 LessonWalkthroughView(walkthrough: walkthrough)
             } else {
@@ -252,14 +266,22 @@ struct Quiz: View {
                 exampleCard
             }
 
-            DisclosureGroup("Read the full explanation") {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
-                        Text(step).font(.body).lineSpacing(2)
-                    }
-                    if visual != nil { exampleCard }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-            }.font(.subheadline).tint(forest)
+            if !deeper.isEmpty {
+                DisclosureGroup("Why this matters") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(Array(deeper.enumerated()), id: \.offset) { _, step in
+                            Text(step).font(.body).lineSpacing(2)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                }.font(.subheadline).tint(forest)
+            }
+            if let action = everyday?.action {
+                Label(action, systemImage: "lightbulb")
+                    .font(.subheadline)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.panel, in: RoundedRectangle(cornerRadius: 9))
+            }
 
             let glossary = lesson.abbreviations + lesson.relevantWords
             if !glossary.isEmpty {

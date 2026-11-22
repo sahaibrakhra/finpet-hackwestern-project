@@ -69,16 +69,47 @@ struct LessonWalkthrough {
             [
                 Beat("Lend the city money", "$100", "Leo buys a bond, which is a loan to the city.", .forward),
                 Beat("Get paid a year later", "$104", "If the city pays as promised, Leo gets the $100 back plus $4 for lending it.", .backward),
-                Beat("What if Leo needs cash sooner?", "Less than $100?", "A new buyer may offer less if other bonds pay more interest. Selling early gives Leo the buyer’s offer.", .backward,
-                     rightActor: Actor(name: "New buyer", icon: "person.fill"))
+                Beat("What did Leo buy?", "A loan", "The city promised to pay Leo back. Leo didn’t buy a piece of the city or its bridge.", .still)
             ]
         ),
         "investments": Self(
             Actor(name: "Bakery shares", icon: "storefront"), Actor(name: "Mixed fund", icon: "basket"),
             [
                 Beat("Start with the same amount", "$100", "Asha can put all $100 in the bakery or buy a basket of investments called a fund.", .still),
-                Beat("Compare what’s tied to the bakery", "$100 vs. $10", "The first choice puts all $100 in the bakery. Only $10 of the mixed fund is tied to the bakery.", .still),
-                Beat("Watch the bakery drop 20%", "−$20 vs. −$2", "The drop affects the amount tied to the bakery. Assume the fund’s other investments stay flat.", .down)
+                Beat("Compare the two choices", "One vs. many", "The first choice depends on one bakery. The fund includes the bakery and other businesses.", .still),
+                Beat("The bakery struggles", "Risk spreads", "A bakery problem can hit the one-stock choice hard. The bakery is just one part of the mixed fund.", .down)
+            ]
+        ),
+        "invest-index": Self(
+            Actor(name: "Index", icon: "list.bullet.rectangle"), Actor(name: "Fund", icon: "basket"),
+            [
+                Beat("Start with a scoreboard", "S&P 500", "The Standard & Poor’s 500 measures how large U.S. companies’ stocks are doing.", .still),
+                Beat("A fund follows the scoreboard", "Index fund", "The fund buys investments to try to follow the index.", .forward),
+                Beat("You buy part of the fund", "One unit", "One fund can give you a piece of many companies instead of depending on one company alone.", .still)
+            ]
+        ),
+        "invest-holdings": Self(
+            Actor(name: "Fund A", icon: "basket"), Actor(name: "Fund B", icon: "basket.fill"),
+            [
+                Beat("Open both fund summaries", "ETF Facts", "An exchange-traded fund’s summary shows what the fund follows and what it owns.", .still),
+                Beat("Check what both funds follow", "Large U.S. stocks", "The funds have different names but follow similar baskets of companies.", .still),
+                Beat("Check what’s missing", "Same market", "If your goal is to add companies from elsewhere, look for holdings outside the United States.", .still)
+            ]
+        ),
+        "plan-housing-costs": Self(
+            Actor(name: "Before tax", icon: "banknote"), Actor(name: "Housing", icon: "house"),
+            [
+                Beat("Start with household income", "$3,000", "Use the monthly amount before tax for this benchmark.", .still),
+                Beat("Take 30% of that amount", "$900", "Multiply $3,000 by 0.30 for a first-pass comparison.", .down),
+                Beat("Compare the full housing cost", "$950", "Rent plus essential utilities is $50 above the benchmark in this example. Now check what is left after tax and other essentials.", .up)
+            ]
+        ),
+        "plan-annuity": Self(
+            Actor(name: "Savings", icon: "archivebox"), Actor(name: "Regular income", icon: "calendar"),
+            [
+                Beat("Start with a lump sum", "Savings now", "An annuity uses some savings to buy a contract for future payments.", .forward),
+                Beat("The contract pays over time", "Monthly income", "A life annuity pays while the person lives under the contract. A term-certain annuity pays for a set time.", .backward),
+                Beat("Check the trade-off", "Cash access", "A regular payment can help cover bills, but getting the original money back may be difficult or impossible.", .still)
             ]
         ),
         "rrsp": Self(
@@ -128,14 +159,6 @@ struct LessonWalkthrough {
                 Beat("Start with one shared limit", "$2,000", "Contribution room is how much more you can put into all of your Tax-Free Savings Accounts combined.", .still),
                 Beat("Put $600 into Bank A", "$1,400 left", "The $600 uses some of your shared room.", .down),
                 Beat("Put $400 into Bank B", "$1,000 left", "The second deposit uses the same room. A second account doesn’t give you a second limit.", .down)
-            ]
-        ),
-        "portfolio": Self(
-            Actor(name: "Portfolio A", icon: "chart.pie"), Actor(name: "Portfolio B", icon: "chart.pie.fill"),
-            [
-                Beat("Both portfolios start at $1,000", "$1,000 each", "A puts $200 into stocks. B puts $800 into stocks. The rest is in bonds and cash.", .still),
-                Beat("Stocks drop by 20%", "−$40 vs. −$160", "A loses 20% of $200. B loses 20% of $800. Assume bonds and cash stay flat.", .down),
-                Beat("Check what’s left", "$960 vs. $840", "The same stock-market move has a bigger effect on B because more of B was in stocks.", .still)
             ]
         ),
         "fund-fees": Self(

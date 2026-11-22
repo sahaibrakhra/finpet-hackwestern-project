@@ -90,8 +90,8 @@ struct PracticeWorkshop {
             .init(name: "Result", icon: "checkmark.circle"),
             [
                 .init(start.label, start.value, context, .still),
-                .init(adjustment.label, adjustment.value, rule, .still),
-                .init(result, "$" + answer.formatted(), calculation(second.1) + ". " + reason, direction)
+                .init(adjustment.label, adjustment.value, "Use this amount with the starting number.", .still),
+                .init(result, "$" + answer.formatted(), calculation(second.1), direction)
             ]
         )
     }
@@ -100,8 +100,9 @@ struct PracticeWorkshop {
         Lesson(id: id, title: title, briefing: [
             context, rule, reason
         ], questions: [
-            calculationQuestion("Using the example, calculate the amount for “\(result.lowercased()).”",
-                                value: second.1, position: 1),
+            Question("The amount for “\(display(second).label.lowercased())” changes before you act. What should you do?",
+                     ["Keep using the old result.", "Recalculate using the updated amount."],
+                     1, "Use the amount that actually applies to your decision."),
             Question("True or false? \(statement)", ["True", "False"], isTrue ? 0 : 1, rule),
             Question(decision, [alternative, best], 1, reason),
             calculationQuestion(change.0, value: change.1, position: 0),
@@ -112,7 +113,7 @@ struct PracticeWorkshop {
     }
 
     static let byID = Dictionary(uniqueKeysWithValues:
-        (tfsa + rrsp + fhsa + credit + investing + planning).map { ($0.id, $0) }
+        (tfsa + rrsp + fhsa + credit + planning).map { ($0.id, $0) }
     )
 
     static let tfsa: [Self] = [

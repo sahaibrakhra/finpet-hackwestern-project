@@ -17,11 +17,6 @@ extension LessonLibrary {
             ("Statement balance", "$500"), ("Minimum due June 18", "$25"),
             ("Payment already posted", "$120"), ("New purchase after statement date", "$40")
         ], "The $40 is outside this statement. The remaining statement balance is $500 minus $120."),
-        "portfolio": LessonExample("Hypothetical $1,000 portfolios", [
-            ("Portfolio A: stocks / bonds / cash", "20% / 60% / 20%"),
-            ("Portfolio B: stocks / bonds / cash", "80% / 15% / 5%"),
-            ("Stock shock only", "−20% on stocks")
-        ], "Multiply the dollar amount in stocks by 20%. For this exercise, bonds and cash stay flat."),
         "retirement-gap": LessonExample("Illustrative early retirement income", [
             ("Annual spending", "$30,000"), ("Annual income before pension", "$12,000"),
             ("Pension starts", "3 years later"), ("Pension income after it starts", "$10,000/year")
@@ -74,18 +69,6 @@ extension LessonLibrary {
         Question("How much more should be paid by June 18 to clear this statement?", ["$25", "$380", "$420"], 1, "The remaining statement balance is $380. The later purchase is separate."),
         Question("Did the $120 posted payment cover the $25 minimum?", ["Yes", "No"], 0, "$120 exceeds the minimum, but it did not clear the statement."),
         Question("If you pay only another $100, what remains from this statement before interest?", ["$280", "$380", "$0"], 0, "$380 minus $100 leaves $280.")
-    ])
-
-    static let portfolio = Lesson(id: "portfolio", title: "Stress-test an investment mix", briefing: [
-        "To turn an allocation into dollars, multiply the portfolio’s value by the percentage in each asset. An 80% stock allocation in a $1,000 portfolio means $800 is exposed to stocks.",
-        "A hypothetical downturn can help you compare exposure. A 20% fall means multiplying the amount in stocks by 0.20 to find the loss.",
-        "Match your analysis to when the money is needed. Real stock, bond, and fund prices can change, and this exercise holds bonds and cash flat to isolate stock exposure."
-    ], questions: [
-        Question("How many dollars in Portfolio A are invested in stocks?", ["$200", "$600", "$800"], 0, "Twenty percent of $1,000 is $200."),
-        Question("How much does Portfolio A lose in the exercise?", ["$20", "$40", "$200"], 1, "Twenty percent of its $200 stock holding is $40."),
-        Question("How much does Portfolio B lose?", ["$20", "$80", "$160"], 2, "Twenty percent of its $800 stock holding is $160."),
-        Question("What is Portfolio B worth after the simulated decline?", ["$840", "$960", "$1,160"], 0, "Subtract the $160 loss from $1,000."),
-        Question("If you need the money for tuition next term, what should you test?", ["Whether a decline would leave enough cash when tuition is due", "Whether the stock names sound familiar"], 0, "Time horizon and the ability to cover the expense matter.")
     ])
 
     static let retirementGap = Lesson(id: "retirement-gap", title: "Map an income gap", briefing: [
