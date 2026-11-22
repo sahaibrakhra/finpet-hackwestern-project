@@ -251,7 +251,6 @@ struct Quiz: View {
     private var briefingContent: some View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
-            let everyday = EverydayLessons.byID[lesson.id]
             let steps = lesson.plainLanguageSteps
             let visual = LessonWalkthrough.forLesson(lesson.id)
             let deeper = lesson.extraExplanation
@@ -266,32 +265,18 @@ struct Quiz: View {
                 exampleCard
             }
 
-            if !deeper.isEmpty {
-                DisclosureGroup("Why this matters") {
-                    VStack(alignment: .leading, spacing: 12) {
+            let keywords = lesson.abbreviations + lesson.relevantWords
+            if !deeper.isEmpty || !keywords.isEmpty {
+                DisclosureGroup("Full explanation") {
+                    VStack(alignment: .leading, spacing: 15) {
                         ForEach(Array(deeper.enumerated()), id: \.offset) { _, step in
-                            Text(step).font(.body).lineSpacing(2)
+                            Text(lesson.highlighted(step, keywords: keywords))
+                                .font(.body).lineSpacing(2)
                         }
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-                }.font(.subheadline).tint(forest)
-            }
-            if let action = everyday?.action {
-                Label(action, systemImage: "lightbulb")
-                    .font(.subheadline)
-                    .padding(12)
+                        if !keywords.isEmpty { keywordTable(keywords) }
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(palette.panel, in: RoundedRectangle(cornerRadius: 9))
-            }
-
-            let glossary = lesson.abbreviations + lesson.relevantWords
-            if !glossary.isEmpty {
-                DisclosureGroup("Look up a word") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(glossary) { word in
-                            (Text(word.id + "  ").bold() + Text(word.meaning))
-                                .font(.subheadline)
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                    .padding(.top, 10)
                 }.font(.subheadline).tint(forest)
             }
             if let chart = lesson.chart {
@@ -299,6 +284,33 @@ struct Quiz: View {
                     .font(.subheadline).tint(forest)
             }
         }
+    }
+
+    private func keywordTable(_ keywords: [BriefingWord]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                Text("Keyword").frame(maxWidth: 105, alignment: .leading)
+                Text("Meaning").frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(.subheadline.bold())
+            .padding(10)
+            .background(palette.panel)
+            .accessibilityAddTraits(.isHeader)
+
+            ForEach(keywords) { word in
+                Divider()
+                HStack(alignment: .top, spacing: 12) {
+                    Text(word.id).bold().frame(maxWidth: 105, alignment: .leading)
+                    Text(word.meaning).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(.subheadline)
+                .padding(10)
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .background(palette.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(palette.rule) }
     }
 
     private var questionContent: some View {

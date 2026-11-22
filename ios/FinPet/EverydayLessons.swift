@@ -4,14 +4,12 @@ struct EverydayLesson {
     let lesson: Lesson
     let example: LessonExample
     let explanation: [String]
-    let action: String
 
     init(_ id: String, _ title: String, _ setup: String, _ example: LessonExample,
-         _ explanation: [String], _ action: String, _ questions: [Question]) {
+         _ explanation: [String], _ questions: [Question]) {
         self.lesson = Lesson(id: id, title: title, briefing: [setup], questions: questions)
         self.example = example
         self.explanation = explanation
-        self.action = action
     }
 }
 
@@ -22,7 +20,6 @@ enum EverydayLessons {
             ("A goal many years away", "May have time to invest")], "One person can save and invest for different goals."),
         ["A savings account keeps money easier to reach. Check access and any limits before counting on the account for a bill.",
          "Investing gives money a chance to grow, but an investment can fall just when you need to sell. A long timeline gives you more flexibility, without guaranteeing a recovery."],
-        "Write down one goal and when you need the money. Decide how much of that money needs to stay easy to reach.",
         [
             Question("Your tuition is due in six weeks. What feature matters most for that money?", ["Easy access and a stable balance", "A chance of a larger gain next year"], 0, "The tuition deadline stays fixed even if investments fall."),
             Question("Can saving and investing both make sense for one person?", ["Yes, the goals can have different deadlines", "No, you have to pick one"], 0, "Decide separately for each goal."),
@@ -32,18 +29,19 @@ enum EverydayLessons {
         ])
 
     static let index = EverydayLesson(
-        "invest-index", "What the S&P 500 actually does", "The Standard & Poor’s 500 (S&P 500) is a scoreboard for about 500 large U.S. companies. A fund can try to follow that scoreboard.",
-        LessonExample("From scoreboard to investment", [("S&P 500 index", "Measures large U.S. companies"),
-            ("An index fund", "Tries to follow that measure"), ("What you can buy", "A unit of the fund")],
-            "The index itself is a measurement. You buy an investment that tracks it."),
-        ["An S&P 500 fund gives you exposure to many companies in one purchase. That spreads company-specific risk compared with owning only one stock.",
-         "The fund still focuses on large U.S. companies. Bigger companies generally have more influence, and the whole U.S. stock market can fall. The fund does not automatically include bonds or the rest of the world."],
-        "Before considering an index fund, read what it tracks and ask which markets you would still be missing.",
+        "invest-index", "What the S&P 500 actually does",
+        "The S&P 500 tracks the stock prices of 500 large U.S. companies together.",
+        LessonExample("From measurement to purchase", [("Index", "Measures the group’s stock prices"),
+            ("Index fund", "Buys stocks to try to follow that measure"), ("What you buy", "A unit of the fund")],
+            "The index measures. The fund owns investments."),
+        ["An index is a number that summarizes how a group of investments is doing. Think of a class average: one score tells you how the class did overall, even though individual students got different marks. The S&P 500 uses a group of 500 U.S. companies to summarize how their shares are doing.",
+         "Large means the company’s shares are worth a lot when you add their value together. It’s about the company’s total stock-market value, not the height of its buildings or how many people it employs. In this index, companies with more stock-market value generally move the index more.",
+         "You can’t buy the index number. An index fund is an investment that tries to match the index. An S&P 500 fund does that by typically buying the companies’ shares in roughly the same proportions. Buying one unit gives you a small slice of that basket. One struggling company matters less than if you owned just that company, but the basket can still fall. This basket focuses on large U.S. companies. It doesn’t give you bonds or a worldwide mix."],
         [
             Question("A friend says they bought the S&P 500. What did they most likely buy?", ["Units of a fund that tracks the index", "The number shown on the index scoreboard"], 0, "An index is a measurement. A fund is an investment you can actually buy."),
             Question("Why might someone prefer this fund to owning a single company’s shares?", ["One company matters less when they own many", "The fund can never fall"], 0, "The benefit is spreading exposure across companies."),
             Question("You want bonds and non-U.S. stocks too. Does this index provide all of that?", ["Yes, 500 companies means every asset is included", "No, it focuses on large U.S. companies"], 1, "A broad spread within the U.S. is different from a spread across countries and investment types."),
-            Question("True or false? Every company in the standard S&P 500 has the same influence.", ["True", "False"], 1, "Larger companies generally have more influence."),
+            Question("What does ‘large’ refer to in the S&P 500?", ["How many shops the company has", "How much the company’s shares are worth together"], 1, "Company size here is about stock-market value. Larger companies generally have more influence on this index."),
             Question("You need your money for a car deposit in two months. What’s a real concern with this fund?", ["U.S. stocks can drop before the deposit is due", "The index only updates once a decade"], 0, "Owning many companies still leaves you exposed to an overall market drop.")
         ])
 
@@ -54,7 +52,6 @@ enum EverydayLessons {
             "Different fund names can hide similar baskets."),
         ["An exchange-traded fund (ETF) is a basket of investments you can buy or sell on an exchange. A Canadian fund summary called ETF Facts shows the fund’s goal, examples of what it holds, and its costs.",
          "Compare the two summaries before buying both. A different ticker, the symbol used to look up a fund, does not necessarily give you different investments. A fund traded in Canadian dollars can still hold U.S. companies."],
-        "Open a fund summary and find three lines: what the fund follows, where the investments are, and what it costs.",
         [
             Question("Two funds have different names but follow the same U.S. stock index. What should you expect?", ["Many of the same companies", "Automatically twice as many different companies"], 0, "Different funds can track the same basket."),
             Question("You want to add companies outside the United States. What would help you choose?", ["A different logo", "A summary showing holdings in other countries"], 1, "Look for the exposure you want in the actual holdings."),
@@ -70,7 +67,6 @@ enum EverydayLessons {
             "Opening or funding an account does not always buy an investment."),
         ["A Tax-Free Savings Account (TFSA) is a Canadian account. Depending on where you open one, the account can hold cash or eligible investments.",
          "Depositing cash and buying a fund are separate actions. At a brokerage, where you can buy and sell investments, check whether the cash is still waiting or the fund purchase has completed."],
-        "In an example account, practise finding the available cash and the investments already owned.",
         [
             Question("You moved money into an investing account. What should you check next?", ["Whether the money is still cash or a purchase went through", "Assume a fund was bought automatically"], 0, "A deposit alone can leave the money uninvested."),
             Question("What does TFSA describe?", ["A U.S. stock index", "The Canadian account that can hold investments"], 1, "An account sets tax and deposit rules. It is separate from the investments inside."),
@@ -86,7 +82,6 @@ enum EverydayLessons {
             "Check the fund name, number of units, and total before confirming."),
         ["A ticker is the short code used to look up a fund. Similar codes can lead to different funds, so confirm the full name and what the fund tracks.",
          "An estimated order total may change. Check fees, currency, and available cash before confirming. After sending an order, check its status before placing another copy."],
-        "Walk through a practice order and stop at the preview. Identify the fund, account, quantity, and total.",
         [
             Question("The symbol looks right, but the full fund name does not. What should you do?", ["Pause and verify the fund", "Confirm because the symbols are similar"], 0, "The full name and objective help confirm what you are buying."),
             Question("The order preview says Sell. You intend to invest new cash. What must change?", ["The order side to Buy", "The calendar date"], 0, "Buy adds units to your account. Sell disposes of units."),
@@ -102,7 +97,6 @@ enum EverydayLessons {
             "A routine can be useful even when the first amount is small."),
         ["A regular contribution is simply money you add on a schedule. It helps with consistency, but it does not promise a gain or a better price on any particular day.",
          "If an automatic transfer goes to a brokerage account, check whether it buys the fund too. Some accounts leave the transfer in cash until you place an order."],
-        "Choose a starting amount you could keep up during an ordinary month. Put a reminder in your calendar to revisit it.",
         [
             Question("Your pay drops for a month. What is a reasonable change?", ["Lower or pause the contribution to leave enough for bills", "Borrow money to keep the same contribution"], 0, "A repeatable plan can change when cash needs change."),
             Question("You add $15 a week for four weeks. How much did you contribute, before growth?", ["$45", "$60"], 1, "Four $15 contributions total $60."),
@@ -118,7 +112,6 @@ enum EverydayLessons {
             "This listing runs $50 above the benchmark. That is a prompt to look closer."),
         ["Start with housing costs such as rent and essential utilities. Compare the total to 30% of before-tax household income.",
          "The money that arrives in your bank after tax is different. Compare the actual housing bill with that take-home amount, then leave room for groceries, transport, and other costs. A percentage alone cannot make that decision."],
-        "Pick a fictional rental listing and compare rent plus utilities with both the benchmark and the money left after other essentials.",
         [
             Question("A household earns $4,000 a month before tax. What is 30%?", ["$1,200", "$400", "$1,600"], 0, "Multiply $4,000 by 0.30."),
             Question("Rent is $1,000 and essential utilities are $150. What amount should you use in this check?", ["$1,000", "$1,150"], 1, "Include the housing costs you actually pay."),
@@ -134,7 +127,6 @@ enum EverydayLessons {
             "This is a gap to plan for, not an annuity quote."),
         ["A life annuity pays as long as you live under the contract. A term-certain annuity pays for a set time instead. Both can help turn a lump sum into more predictable income.",
          "The trade-off is access: money used to buy an annuity may be difficult or impossible to get back as a lump sum. Check fees, inflation protection, and what happens when the person receiving payments dies."],
-        "Separate the expenses you must pay every month from costs that vary. That makes it easier to compare regular income with flexible savings.",
         [
             Question("What is someone buying with an annuity?", ["A contract to receive payments over time", "A new chequing account"], 0, "The contract exchanges money now for a stream of payments."),
             Question("Someone wants payments that last as long as they live. Which type is built for that?", ["A term-certain annuity", "A life annuity"], 1, "A life annuity pays for life under its terms."),

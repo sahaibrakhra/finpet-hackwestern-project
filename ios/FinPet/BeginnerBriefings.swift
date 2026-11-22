@@ -86,7 +86,11 @@ extension Lesson {
                     BriefingWord("Dividend", "A payment a company can choose to make to people who own its shares.", searching: ["dividend"]),
                     BriefingWord("Diversification", "Spreading your money across investments so you depend less on any one of them.", searching: ["diversif"]),
                     BriefingWord("Maturity", "The date a bond is scheduled to repay the amount borrowed.", searching: ["maturity"]),
-                    BriefingWord("Fund holdings", "The individual investments a fund owns.", searching: ["holdings", "fact sheet"])
+                    BriefingWord("Fund holdings", "The individual investments a fund owns.", searching: ["holdings", "fact sheet"]),
+                    BriefingWord("Index", "One number used to summarize how a group of investments is doing.", searching: ["index"]),
+                    BriefingWord("Index fund", "A fund that tries to follow an index by owning a similar mix of investments.", searching: ["index fund"]),
+                    BriefingWord("Stock-market value", "The total value of a company’s shares added together.", searching: ["stock-market value"]),
+                    BriefingWord("Fund unit", "One small piece of a fund and its basket of investments.", searching: ["fund unit", "one unit", "units of a fund"])
                 ])
         default:
             BeginnerGuide(situation: "Imagine planning for a time when you’ll work less or stop working. The goal is to estimate what you’ll spend, when money will come in, and how much savings may need to cover.",
@@ -123,6 +127,31 @@ extension Lesson {
         return beginnerGuide.words.filter { word in
             !named.contains(word.id) && word.search.contains { reading.contains($0.lowercased()) }
         }
+    }
+
+    func highlighted(_ text: String, keywords: [BriefingWord]) -> AttributedString {
+        let candidates = Set(keywords.map(\.id) + keywords.flatMap(\.search))
+            .sorted { $0.count > $1.count }
+            .map(NSRegularExpression.escapedPattern(for:))
+        guard !candidates.isEmpty,
+              let pattern = try? NSRegularExpression(
+                  pattern: "\\b(?:" + candidates.joined(separator: "|") + ")s?\\b",
+                  options: .caseInsensitive
+              ) else { return AttributedString(text) }
+
+        var result = AttributedString()
+        var cursor = text.startIndex
+        let matches = pattern.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        for match in matches {
+            guard let range = Range(match.range, in: text) else { continue }
+            result += AttributedString(String(text[cursor..<range.lowerBound]))
+            var emphasis = AttributedString(String(text[range]))
+            emphasis.inlinePresentationIntent = .stronglyEmphasized
+            result += emphasis
+            cursor = range.upperBound
+        }
+        result += AttributedString(String(text[cursor...]))
+        return result
     }
 
     private static let commonAbbreviations = [
