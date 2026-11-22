@@ -34,7 +34,6 @@ struct MascotEditor: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 17) {
-                Text("Customize your mascot").font(.system(size: 31, weight: .heavy))
                 VStack(spacing: 5) {
                     Pet(color: color, photo: photo.isEmpty ? nil : photo, mood: previewMood)
                         .frame(width: photo.isEmpty ? 140 : 190)
@@ -51,12 +50,22 @@ struct MascotEditor: View {
         }
         .foregroundStyle(ink).background(palette.paper.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom) {
-            ActionButton(title: "Done") {
-                editingName = false
-                name = petName
-                close()
-            }.padding(.horizontal, 20).padding(.vertical, 8).background(palette.paper)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Text("Customize mascot").font(.headline)
+                Spacer()
+                Button("Close") {
+                    editingName = false
+                    name = petName
+                    close()
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(palette.accent)
+                .frame(minWidth: 44, minHeight: 44)
+            }
+            .padding(.horizontal, 20)
+            .background(palette.paper)
+            .overlay(alignment: .bottom) { Rectangle().fill(palette.rule).frame(height: 1) }
         }
         .task(id: selection) {
             guard let selection else { return }
