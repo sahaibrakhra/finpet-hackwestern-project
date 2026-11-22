@@ -244,15 +244,22 @@ struct Quiz: View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
             let steps = lesson.plainLanguageSteps
-            if let setup = steps.first {
-                Text(setup).font(.body).lineSpacing(3)
+            if let walkthrough = LessonWalkthrough.byLesson[lesson.id] {
+                LessonWalkthroughView(walkthrough: walkthrough)
+            } else {
+                if let setup = steps.first { Text(setup).font(.body) }
+                exampleCard
             }
-            exampleCard
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(steps.dropFirst().enumerated()), id: \.offset) { _, step in
-                    Text(step).font(.body).lineSpacing(3)
-                }
-            }
+
+            DisclosureGroup("Read the full explanation") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
+                        Text(step).font(.body).lineSpacing(2)
+                    }
+                    if LessonWalkthrough.byLesson[lesson.id] != nil { exampleCard }
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+            }.font(.subheadline).tint(forest)
+
             let glossary = lesson.abbreviations + lesson.relevantWords
             if !glossary.isEmpty {
                 DisclosureGroup("Look up a word") {

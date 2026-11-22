@@ -1,0 +1,225 @@
+import SwiftUI
+
+struct LessonWalkthrough {
+    struct Actor {
+        let name: String
+        let icon: String
+    }
+
+    struct Beat {
+        let title: String
+        let amount: String
+        let note: String
+        let direction: Direction
+        let rightActor: Actor?
+
+        enum Direction {
+            case forward, backward, still
+        }
+
+        init(_ title: String, _ amount: String, _ note: String, _ direction: Direction, rightActor: Actor? = nil) {
+            self.title = title
+            self.amount = amount
+            self.note = note
+            self.direction = direction
+            self.rightActor = rightActor
+        }
+    }
+
+    let left: Actor
+    let right: Actor
+    let beats: [Beat]
+
+    init(_ left: Actor, _ right: Actor, _ beats: [Beat]) {
+        self.left = left
+        self.right = right
+        self.beats = beats
+    }
+
+    static let byLesson: [String: Self] = [
+        "stock-ownership": Self(
+            Actor(name: "Mina", icon: "person.fill"), Actor(name: "Bakery", icon: "storefront"),
+            [
+                Beat("Buy one share", "$20", "Mina pays a seller $20 for a tiny piece of the bakery.", .forward,
+                     rightActor: Actor(name: "Seller", icon: "person.fill")),
+                Beat("Get a dividend", "$1", "The bakery pays Mina $1 while Mina owns the share.", .backward),
+                Beat("Sell the share", "$23", "A new investor pays Mina $23 for the share.", .backward,
+                     rightActor: Actor(name: "New investor", icon: "person.fill")),
+                Beat("Work out the gain", "+$4", "Mina gets $24 back in total. Subtract the $20 Mina originally spent.", .still)
+            ]
+        ),
+        "bond-lending": Self(
+            Actor(name: "Leo", icon: "person.fill"), Actor(name: "City", icon: "building.columns"),
+            [
+                Beat("Lend the city money", "$100", "Leo buys a bond, which is a loan to the city.", .forward),
+                Beat("Get paid a year later", "$104", "If the city pays as promised, Leo gets the $100 back plus $4 for lending it.", .backward),
+                Beat("What if Leo needs cash sooner?", "Less than $100?", "A new buyer may offer less if other bonds pay more interest. Selling early gives Leo the buyer’s offer.", .backward,
+                     rightActor: Actor(name: "New buyer", icon: "person.fill"))
+            ]
+        ),
+        "investments": Self(
+            Actor(name: "Bakery shares", icon: "storefront"), Actor(name: "Mixed fund", icon: "basket"),
+            [
+                Beat("Start with the same amount", "$100", "Asha can put all $100 in the bakery or buy a basket of investments called a fund.", .still),
+                Beat("Compare what’s tied to the bakery", "$100 vs. $10", "The first choice puts all $100 in the bakery. Only $10 of the mixed fund is tied to the bakery.", .still),
+                Beat("Watch the bakery drop 20%", "−$20 vs. −$2", "The drop affects the amount tied to the bakery. Assume the fund’s other investments stay flat.", .still)
+            ]
+        ),
+        "rrsp": Self(
+            Actor(name: "Sam", icon: "person.fill"), Actor(name: "Retirement savings", icon: "archivebox"),
+            [
+                Beat("Put money aside", "$2,000", "Sam saves $2,000 in a Registered Retirement Savings Plan (RRSP).", .forward),
+                Beat("Take $2,000 off the tax calculation", "$48,000", "Sam earns $50,000. Claiming the $2,000 deduction leaves $48,000 in this example.", .still),
+                Beat("A deduction changes the tax bill", "$400", "If the tax on that $2,000 would have been 20%, Sam saves $400 in tax in this example.", .still),
+                Beat("Take money out later", "Tax later", "Money Sam takes out normally counts as income in the year Sam receives it.", .backward)
+            ]
+        ),
+        "rrsp-withdrawals": Self(
+            Actor(name: "Jo’s account", icon: "archivebox"), Actor(name: "Jo and the tax agency", icon: "person.fill"),
+            [
+                Beat("Request money from the account", "$1,000", "Jo asks the bank to take out $1,000. The full amount leaves the retirement account.", .forward),
+                Beat("The bank splits it", "$900 + $100", "Jo gets $900. The bank sends $100 toward Jo’s taxes.", .still),
+                Beat("Report the full amount", "$1,000", "Jo generally reports $1,000 as income. The $100 counts as tax already paid.", .still)
+            ]
+        ),
+        "tfsa": Self(
+            Actor(name: "You", icon: "person.fill"), Actor(name: "Savings account", icon: "archivebox"),
+            [
+                Beat("Put money in", "$1,000", "A Tax-Free Savings Account (TFSA) can hold cash or investments. Deposits use some of the amount you’re allowed to put in.", .forward),
+                Beat("The investment grows", "$1,200", "The extra $200 is growth. Growth doesn’t count as money you put in.", .still),
+                Beat("Take money out", "$1,200", "The growth is generally free of Canadian tax. The amount taken out generally adds back to your room next year.", .backward)
+            ]
+        ),
+        "tfsa-timing": Self(
+            Actor(name: "Jamie", icon: "person.fill"), Actor(name: "Savings account", icon: "archivebox"),
+            [
+                Beat("Put money in", "$600", "Jamie starts with $900 of space to add money. After adding $600, Jamie has $300 of space left.", .forward),
+                Beat("Take cash out", "$400", "Jamie takes out $400. The space to put more in this year stays at $300.", .backward),
+                Beat("Choose when to put it back", "$300 now", "Putting all $400 back now would go $100 over. The $400 taken out generally adds room next January.", .still)
+            ]
+        ),
+        "card-payment": Self(
+            Actor(name: "Riley", icon: "person.fill"), Actor(name: "Card company", icon: "creditcard"),
+            [
+                Beat("The bill closes", "$500", "Riley’s bill shows $500. That snapshot is the statement balance.", .still),
+                Beat("Pay part of the bill", "$120", "Riley pays $120. Only $380 remains on the bill due June 18.", .forward),
+                Beat("Buy groceries after the bill closes", "$40", "The later purchase raises the current balance to $420. The amount left on the June 18 bill is still $380.", .still)
+            ]
+        ),
+        "compounding": Self(
+            Actor(name: "Year one", icon: "calendar"), Actor(name: "Year two", icon: "calendar.badge.plus"),
+            [
+                Beat("Start with $100", "$100", "Assume the investment grows 10% each year for this example.", .still),
+                Beat("Leave the first gain invested", "$110", "The investment grows $10 in year one. The next year starts at $110.", .forward),
+                Beat("Earn growth on the gain too", "$121", "Ten percent of $110 is $11. The extra dollar comes from leaving the first year’s gain invested.", .still)
+            ]
+        )
+    ]
+}
+
+struct LessonWalkthroughView: View {
+    let walkthrough: LessonWalkthrough
+    @Environment(\.mascotPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var index = 0
+    @State private var travel: CGFloat = 0
+    @State private var moveTask: Task<Void, Never>?
+
+    private var beat: LessonWalkthrough.Beat { walkthrough.beats[index] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("See it happen", systemImage: "play.circle").font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(index + 1) of \(walkthrough.beats.count)").font(.footnote.monospacedDigit()).foregroundStyle(muted)
+            }
+            diagram
+            Text(beat.title).font(.headline).accessibilityAddTraits(.isHeader)
+            Text(beat.note).font(.body)
+                .accessibilityAddTraits(.updatesFrequently)
+
+            HStack(spacing: 9) {
+                Button { show(index - 1) } label: {
+                    Image(systemName: "chevron.left").font(.subheadline.bold())
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain).disabled(index == 0)
+                .accessibilityLabel("Previous step")
+                HStack(spacing: 5) {
+                    ForEach(walkthrough.beats.indices, id: \.self) { position in
+                        Capsule().fill(position == index ? palette.accent : palette.rule)
+                            .frame(width: position == index ? 16 : 5, height: 5)
+                    }
+                }.accessibilityHidden(true)
+                Spacer()
+                Button {
+                    show(index + 1 == walkthrough.beats.count ? 0 : index + 1)
+                } label: {
+                    Text(index + 1 == walkthrough.beats.count ? "Replay" : "Next step")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14).frame(minHeight: 44)
+                        .foregroundStyle(.white)
+                        .background(palette.accent, in: RoundedRectangle(cornerRadius: 9))
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(palette.panel, in: RoundedRectangle(cornerRadius: 14))
+        .onAppear { animate(beat.direction) }
+        .onDisappear { moveTask?.cancel() }
+    }
+
+    private var diagram: some View {
+        HStack(alignment: .top, spacing: 10) {
+            actor(walkthrough.left)
+            GeometryReader { lane in
+                let bounds = max(0, lane.size.width - 28)
+                ZStack {
+                    if beat.direction != .still {
+                        Capsule().fill(palette.rule).frame(height: 2)
+                    }
+                    Text(beat.amount)
+                        .font(.subheadline.weight(.bold).monospacedDigit())
+                        .lineLimit(1).minimumScaleFactor(0.65)
+                        .padding(.horizontal, 7).padding(.vertical, 6)
+                        .background(palette.paper, in: Capsule())
+                        .offset(x: travel * bounds * 0.20)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.frame(height: 43)
+            actor(beat.rightActor ?? walkthrough.right)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(beat.amount)
+    }
+
+    private func actor(_ actor: LessonWalkthrough.Actor) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: actor.icon).font(.system(size: 17, weight: .medium))
+                .frame(width: 43, height: 43)
+                .background(palette.paper, in: Circle())
+            Text(actor.name).font(.caption.weight(.medium)).multilineTextAlignment(.center)
+        }
+        .foregroundStyle(palette.accent)
+        .frame(width: 65)
+    }
+
+    private func show(_ position: Int) {
+        guard walkthrough.beats.indices.contains(position) else { return }
+        index = position
+        animate(beat.direction)
+    }
+
+    private func animate(_ direction: LessonWalkthrough.Beat.Direction) {
+        moveTask?.cancel()
+        travel = 0
+        guard !reduceMotion, direction != .still else { return }
+        let sign: CGFloat = direction == .forward ? 1 : -1
+        travel = -sign
+        moveTask = Task { @MainActor in
+            do { try await Task.sleep(for: .milliseconds(35)) } catch { return }
+            withAnimation(.easeInOut(duration: 0.54)) { travel = sign }
+        }
+    }
+}
