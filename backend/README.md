@@ -51,6 +51,17 @@ Per avatar: 1 image (about $0.07) + 4 clips of 3 s at 360p (about $0.07 each) = 
 The app saves every avatar and animation on the phone and never re-requests a clip it already has.
 Tune in `.env`: `ANIM_SECONDS` (3-15, 3 is cheapest), `ANIM_RESOLUTION` (360p is cheapest), `ANIM_FPS`, `ANIM_FRAME_HEIGHT`.
 
+## Deploying on Northflank
+The backend ships with a `Dockerfile`. In Northflank:
+1. Create a project, then **Add new service -> Combined service** (build + deploy) and connect this GitHub repo.
+2. Build: **Dockerfile**, build context `/backend`, Dockerfile path `/backend/Dockerfile`.
+3. Networking: add port **8000**, protocol **HTTP**, and tick **Publicly expose**. Northflank gives it an `https://....code.run` URL.
+4. Environment variables (Runtime): `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`
+   (same names as `.env.example`; mark them as secrets). Do not put a `.env` file in the image.
+5. Optional health check: HTTP `GET /health` on port 8000.
+6. Put the public URL in `ios/Info.plist` as `FinPetBackendURL` (https, no trailing slash) and rebuild the app.
+Keep the same `JWT_SECRET` you used before, or everyone's saved login tokens stop working.
+
 ## Pointing the iOS app at it
-The app reads `FinPetBackendURL` from `ios/Info.plist` (default `http://localhost:8000`, fine for the simulator).
-On a real iPhone use your computer's LAN IP, e.g. `http://192.168.1.20:8000`.
+The app reads `FinPetBackendURL` from `ios/Info.plist` for the simulator and real devices alike (set it to your Northflank URL).
+To use a local server instead, set it to `http://localhost:8000` (simulator) or your computer's LAN IP, e.g. `http://192.168.1.20:8000`.
