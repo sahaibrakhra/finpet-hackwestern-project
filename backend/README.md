@@ -24,6 +24,14 @@ Needs a billing-enabled Gemini key (image and video models are not on the free t
   `{"token", "expires_at", "user": {"id", "username"}}` (400 invalid, 401 bad login, 409 username taken, 503 not configured).
 - `GET /api/auth/me` - header `Authorization: Bearer <token>`. Protect other routes with `Depends(auth.get_current_user)`.
 
+## Friends (all need `Authorization: Bearer <token>`)
+- `GET /api/friends` - `{friends: [{id, username, streak}], incoming: [{request_id, id, username}], outgoing: [...]}`.
+- `POST /api/friends/requests` `{username}` - sends a request (404 if the user does not exist, 409 if already pending or friends).
+  Nobody is a friend until the other person accepts.
+- `POST /api/friends/requests/{request_id}/accept` / `.../deny` - only the person who received it. Accepting makes the friendship mutual.
+- `DELETE /api/friends/{user_id}` - removes an accepted friend for both people.
+Tests: `pytest test_friends.py`. After pulling, re-run the grants at the bottom of `schema.sql` in the Supabase SQL editor.
+
 ## API
 - `POST /api/avatar` - multipart field `photo` (jpg/png/webp, max 10 MB).
   Returns `{"avatar": <base64 transparent PNG, 9:16>, "background": "#RRGGBB"}`.

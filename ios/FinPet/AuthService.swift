@@ -83,6 +83,8 @@ final class AuthSession: ObservableObject {
 
     @Published private(set) var state: State = .checking
     private var token: String?
+    /// Current login token, for authenticated API calls (nil when signed out).
+    var bearerToken: String? { token }
 
     init() { restore() }
 

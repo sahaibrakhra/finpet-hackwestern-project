@@ -19,6 +19,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 load_dotenv(Path(__file__).parent / ".env")
 
 import auth  # noqa: E402  (after load_dotenv; reads env lazily anyway)
+import friends  # noqa: E402
 import media  # noqa: E402
 
 log = logging.getLogger("finpet")
@@ -66,6 +67,7 @@ ANIMATIONS = {
 
 app = FastAPI(title="FinPet backend")
 app.include_router(auth.router)
+app.include_router(friends.router)
 
 
 def _env(name: str, default: str) -> str:
