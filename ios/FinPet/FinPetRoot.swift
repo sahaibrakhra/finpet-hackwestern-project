@@ -1,4 +1,5 @@
 import SwiftUI
+import Pow
 
 private enum Page: String, CaseIterable {
     case home = "Home", learn = "Learn", friends = "Friends"
@@ -46,6 +47,7 @@ struct FinPetRoot: View {
     @State private var sheet: Sheet?
     @State private var invite = false
     @State private var monthlyExpanded = false
+    @State private var focusedUnit: String?
     @State private var friendName = ""
 
     private var palette: MascotPalette {
@@ -100,18 +102,22 @@ struct FinPetRoot: View {
 
     var body: some View {
         GeometryReader { viewport in
-            ScrollView {
-                Group {
-                    switch page {
-                    case .home: home(mascotHeight: viewport.size.height * 0.49)
-                    case .learn: learn
-                    case .friends: friends
+            ScrollViewReader { scroll in
+                ScrollView {
+                    Group {
+                        switch page {
+                        case .home: home(mascotHeight: viewport.size.height * 0.48)
+                        case .learn: learn(scroll: scroll)
+                        case .friends: friends
+                        }
                     }
+                    .padding(.horizontal, page == .home ? 0 : 22)
+                    .padding(.top, page == .home ? 0 : 18)
+                    .padding(.bottom, 28)
                 }
-                .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 22)
+                .defaultScrollAnchor(.top)
+                .id(page)
             }
-            .defaultScrollAnchor(.top)
-            .id(page)
         }
         .foregroundStyle(ink)
         .background(palette.paper.ignoresSafeArea())
@@ -193,28 +199,25 @@ struct FinPetRoot: View {
     }
 
     private var tabs: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(Page.allCases, id: \.self) { item in
-                Button {
-                    page = item
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: item.icon).font(.system(size: 18, weight: .semibold))
-                            .frame(width: 54, height: 31)
-                            .overlay(alignment: .bottom) {
-                                Circle().fill(page == item ? palette.accent : .clear).frame(width: 3, height: 3)
-                            }
-                        Text(item.rawValue).font(.caption.weight(page == item ? .bold : .medium))
+                let isCurrent = page == item
+                Button { page = item } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: item.icon).font(.system(size: 16, weight: .medium))
+                        Text(item.rawValue).font(.subheadline.weight(isCurrent ? .semibold : .regular))
                     }
-                    .frame(maxWidth: .infinity)
-                    .foregroundStyle(page == item ? ink : muted)
-                    .accessibilityAddTraits(page == item ? .isSelected : [])
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .foregroundStyle(isCurrent ? palette.accent : muted)
+                    .background(isCurrent ? palette.panel : .clear, in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityAddTraits(isCurrent ? .isSelected : [])
                 }.buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 13).padding(.vertical, 7)
         .background(palette.paper)
         .overlay(alignment: .top) { Rectangle().fill(palette.rule).frame(height: 1) }
+        .changeEffect(.feedbackHapticSelection, value: page)
     }
 
     private func heading(_ title: String) -> some View {
@@ -273,40 +276,55 @@ struct FinPetRoot: View {
     }
 
     private func home(mascotHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 21) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
-                    heading(petName)
-                    Text(mood).font(.subheadline.italic()).foregroundStyle(muted)
-                }
-                Button { sheet = .setup } label: {
-                    Image(systemName: "slider.horizontal.3").font(.headline)
-                        .frame(width: 44, height: 44)
-                        .foregroundStyle(palette.accent)
-                        .background(palette.panel, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Customize mascot")
-            }
-            MascotStage(mascot: pet(), active: usedRecently)
+        VStack(alignment: .leading, spacing: 0) {
+            homeHeader
+            MascotStage(mascot: pet(), active: usedRecently, fullBleed: true)
                 .frame(height: mascotHeight)
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Challenge of the day").font(.system(.title2, design: .serif, weight: .semibold)).padding(.bottom, 7)
-                ForEach(Array(dailyLessons.enumerated()), id: \.element.id) { index, lesson in
-                    if index > 0 { Divider() }
-                    challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", primary: index == 0)
+
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 13) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Today").font(.system(.title, design: .serif, weight: .semibold))
+                        Spacer()
+                        Text(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                            .font(.subheadline).foregroundStyle(muted)
+                    }
+                    ForEach(Array(dailyLessons.enumerated()), id: \.element.id) { index, lesson in
+                        challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", primary: index == 0)
+                    }
+                }
+                Divider()
+                reviewSection
+                Divider()
+                streakBoard
+                Divider()
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Challenge of the month").font(.system(.title2, design: .serif, weight: .semibold))
+                    monthlyQuest
                 }
             }
-            Divider()
-            reviewSection
-            Divider()
-            streakBoard
-            Divider()
-            VStack(alignment: .leading, spacing: 11) {
-                Text("Challenge of the month").font(.system(.title2, design: .serif, weight: .semibold))
-                monthlyQuest
-            }
+            .padding(.horizontal, 22).padding(.top, 20)
         }
+    }
+
+    private var homeHeader: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(petName).font(.system(.largeTitle, design: .serif, weight: .semibold))
+                Text(mood).font(.subheadline).foregroundStyle(muted)
+            }
+            Spacer(minLength: 8)
+            Button { sheet = .setup } label: {
+                Image(systemName: "slider.horizontal.3").font(.system(size: 19, weight: .medium))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(palette.accent)
+            .accessibilityLabel("Customize mascot")
+        }
+        .padding(.horizontal, 22).padding(.top, 12).padding(.bottom, 9)
+        .background(palette.stage)
     }
 
     private var reviewSection: some View {
@@ -362,17 +380,33 @@ struct FinPetRoot: View {
     private func challenge(_ lesson: Lesson, key: String, primary: Bool) -> some View {
         let done = completed[key] != nil
         return Button { sheet = .lesson(lesson, completionKey: key) } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(lesson.title).font(primary ? .title3.weight(.semibold) : .headline)
-                    Text(done ? "Completed · Review" : (primary ? "\(lesson.questions.count) questions" : "Bonus practice"))
-                        .font(.subheadline).foregroundStyle(muted)
+            HStack(alignment: .center, spacing: 15) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(primary ? "Challenge of the day" : "Bonus practice")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(primary ? .white.opacity(0.85) : muted)
+                    Text(lesson.title)
+                        .font(primary ? .system(.title2, design: .serif, weight: .semibold) : .headline)
+                        .multilineTextAlignment(.leading)
+                    if primary || done {
+                        Text(done ? "Completed · Review" : "\(lesson.questions.count) questions")
+                            .font(.subheadline)
+                            .foregroundStyle(primary ? .white.opacity(0.85) : muted)
+                    }
                 }
-                Spacer()
-                Image(systemName: done ? "checkmark.circle.fill" : "chevron.right")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
+                Spacer(minLength: 6)
+                Image(systemName: done ? "checkmark.circle" : (primary ? "play.fill" : "chevron.right"))
+                    .font(.system(size: primary ? 15 : 12, weight: .semibold))
+                    .frame(width: primary ? 42 : 20, height: 36)
+                    .background(primary ? .white.opacity(0.12) : .clear, in: Circle())
+                    .accessibilityHidden(true)
             }
-            .padding(.vertical, 13).contentShape(Rectangle())
+            .foregroundStyle(primary ? .white : ink)
+            .padding(.vertical, primary ? 17 : 7)
+            .padding(.horizontal, primary ? 17 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(primary ? palette.accent : .clear, in: RoundedRectangle(cornerRadius: 13))
+            .contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
 
@@ -434,20 +468,51 @@ struct FinPetRoot: View {
         }
     }
 
-    private var learn: some View {
-        LazyVStack(alignment: .leading, spacing: 20) {
-            HStack {
+    private func learn(scroll: ScrollViewProxy) -> some View {
+        LazyVStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center) {
                 heading("Learn")
                 Label("\(streak)", systemImage: "flame.fill")
                     .font(.subheadline.weight(.medium)).foregroundStyle(muted)
-                pet().frame(width: 55).clipped()
+                pet().frame(width: 58).clipped()
             }
+            topicStrip(scroll: scroll)
             reviewSection
             Divider()
             ForEach(LessonLibrary.units, id: \.title) { unit in
-                unitPath(unit)
+                unitPath(unit).id(unit.title)
             }
         }
+    }
+
+    private func topicStrip(scroll: ScrollViewProxy) -> some View {
+        let topicNames = ["Investing", "TFSA", "RRSP", "First home", "Credit", "Planning"]
+        return ScrollView(.horizontal) {
+            HStack(spacing: 7) {
+                ForEach(Array(LessonLibrary.units.enumerated()), id: \.element.title) { index, unit in
+                    let active = (focusedUnit ?? LessonLibrary.units.first?.title) == unit.title
+                    Button {
+                        focusedUnit = unit.title
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.27)) {
+                            scroll.scrollTo(unit.title, anchor: .top)
+                        }
+                    } label: {
+                        Text(topicNames.indices.contains(index) ? topicNames[index] : unit.title)
+                            .font(.subheadline.weight(active ? .semibold : .medium))
+                            .foregroundStyle(active ? .white : palette.accent)
+                            .padding(.horizontal, 13).frame(minHeight: 42)
+                            .background(active ? palette.accent : palette.panel, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(unit.title)
+                    .accessibilityAddTraits(active ? .isSelected : [])
+                }
+            }.scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.viewAligned)
+        .scrollIndicators(.hidden)
+        .changeEffect(.feedbackHapticSelection, value: focusedUnit)
+        .accessibilityLabel("Jump to a topic")
     }
 
     private func unitPath(_ unit: LearningUnit) -> some View {
@@ -512,54 +577,65 @@ struct FinPetRoot: View {
     }
 
     private var friends: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 19) {
             HStack {
                 heading("Friends")
-                Button("Log out") { auth.logOut() }
-                    .font(.headline).foregroundStyle(muted).petCard(radius: 14)
-                Button("Invite") { invite = true }
-                    .font(.headline).foregroundStyle(palette.accent).petCard(radius: 14)
+                Button {
+                    invite = true
+                } label: {
+                    Label("Invite", systemImage: "person.badge.plus")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12).frame(minHeight: 44)
+                        .background(palette.panel, in: RoundedRectangle(cornerRadius: 9))
+                }.buttonStyle(.plain).foregroundStyle(palette.accent)
+                Menu {
+                    Button("Log out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { auth.logOut() }
+                } label: {
+                    Image(systemName: "ellipsis").frame(width: 44, height: 44)
+                        .foregroundStyle(palette.accent)
+                }.accessibilityLabel("Account options")
             }
-            Label {
-                Text("Share your practice streak and check-ins with friends.")
-                    .font(.subheadline)
-            } icon: { Image(systemName: "lock").font(.footnote) }
-            .foregroundStyle(muted)
-            Text("Shared streaks").font(.title2.weight(.heavy))
-            ForEach(allFriends, id: \.name) { friend in
-                let checked = checkins.split(separator: "|").contains(Substring(friend.name))
-                VStack(spacing: 11) {
-                    HStack(spacing: 8) {
-                        HStack(spacing: -9) {
-                            pet().frame(width: 46)
-                            Pet(color: friend.color).frame(width: 46)
-                        }
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("You + \(friend.name)").font(.headline)
-                            Text(checked ? "You checked in" : (friend.ready ? "\(friend.name) is in. Your turn" : "Neither of you yet today"))
-                                .font(.caption).foregroundStyle(muted)
-                        }
-                        Spacer()
-                        Label("\(friend.days + (checked && friend.ready ? 1 : 0))", systemImage: "flame.fill")
-                            .font(.title3.weight(.heavy))
-                    }
+            Text("Shared streaks")
+                .font(.system(.title2, design: .serif, weight: .semibold))
+            VStack(spacing: 0) {
+                ForEach(allFriends, id: \.name) { friend in
+                    friendRow(name: friend.name, days: friend.days, ready: friend.ready, color: friend.color)
                     Divider()
-                    HStack(spacing: 10) {
-                        Label("You", systemImage: checked ? "checkmark.circle.fill" : "circle")
-                        Label(friend.name, systemImage: friend.ready ? "checkmark.circle.fill" : "circle")
-                        Spacer(minLength: 0)
-                        Button(checked ? "Checked in" : "Check in") {
-                            checkins += checkins.isEmpty ? friend.name : "|" + friend.name
-                        }
-                        .font(.footnote.bold()).padding(.horizontal, 10).padding(.vertical, 10)
-                        .foregroundStyle(checked ? forest : .white)
-                        .background(checked ? mint : forest, in: RoundedRectangle(cornerRadius: 12))
-                        .disabled(checked)
-                    }.font(.caption.weight(.medium))
-                }.petCard()
+                }
             }
-            ActionButton(title: "＋  Start a shared streak", secondary: true) { invite = true }
+            Button {
+                invite = true
+            } label: {
+                Label("Start a shared streak", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
+            }.buttonStyle(.plain).foregroundStyle(palette.accent)
         }
     }
 
+    private func friendRow(name: String, days: Int, ready: Bool, color: PetColor) -> some View {
+        let checked = checkins.split(separator: "|").contains(Substring(name))
+        return HStack(spacing: 12) {
+            Pet(color: color).frame(width: 50, height: 50)
+                .background(palette.panel, in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name).font(.headline)
+                Text(checked ? "You checked in" : (ready ? "Your turn" : "Waiting for a check-in"))
+                    .font(.footnote).foregroundStyle(muted)
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 5) {
+                Label("\(days + (checked && ready ? 1 : 0))", systemImage: "flame.fill")
+                    .font(.footnote.monospacedDigit().weight(.semibold)).foregroundStyle(muted)
+                Button {
+                    checkins += checkins.isEmpty ? name : "|" + name
+                } label: {
+                    Text(checked ? "Done" : "Check in").font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 10).frame(minHeight: 32)
+                        .background(palette.panel, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain).foregroundStyle(palette.accent).disabled(checked)
+                .changeEffect(.feedback(hapticNotification: .success), value: checked, isEnabled: checked)
+            }
+        }.padding(.vertical, 10)
+    }
 }

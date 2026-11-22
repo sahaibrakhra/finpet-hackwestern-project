@@ -4,6 +4,7 @@ struct MascotStage: View {
     let mascot: Pet
     /// True when the user practised yesterday or today.
     var active = true
+    var fullBleed = false
     @Environment(\.mascotPalette) private var palette
     /// Active: opening the page waves, a tap waves, tapping again while it waves dances; each then returns
     /// to the looping idle. Inactive: the looping sad clip, and taps do nothing. Only plays saved clips.
@@ -32,7 +33,7 @@ struct MascotStage: View {
                     .padding(.bottom, height * 0.035)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: fullBleed ? 0 : 16))
             .animation(.easeInOut(duration: 0.4), value: library.activeID)
         }
     }

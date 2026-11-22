@@ -200,14 +200,17 @@ struct Quiz: View {
         HStack(spacing: 6) {
             lessonTab("Briefing", isSelected: briefing) { showingBriefing = true }
             lessonTab("Questions", isSelected: !briefing) { showingBriefing = false }
-        }.padding(4).background(palette.panel, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .overlay(alignment: .bottom) { Rectangle().fill(palette.rule).frame(height: 1) }
     }
 
     private func lessonTab(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.subheadline.bold()).frame(maxWidth: .infinity).padding(.vertical, 9)
-                .background(isSelected ? .white : .clear, in: RoundedRectangle(cornerRadius: 10))
                 .foregroundStyle(isSelected ? palette.accent : muted)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(isSelected ? palette.accent : .clear).frame(height: 2)
+                }
         }.buttonStyle(.plain)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -246,16 +249,23 @@ struct Quiz: View {
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.bottom, 8)
             ForEach(question.choices.indices, id: \.self) { option in
                 Button { selected = option } label: {
-                    HStack {
+                    HStack(spacing: 12) {
                         Image(systemName: answerIcon(option)).foregroundStyle(answerColor(option))
-                        Text(question.choices[option]).font(.headline)
-                        Spacer()
+                            .frame(width: 23)
+                        Text(question.choices[option]).font(.body.weight(.medium))
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 5)
                         if checked && option == question.correct {
                             Text("Correct").font(.caption.bold()).foregroundStyle(forest)
                         } else if checked && selected == option {
                             Text("Your answer").font(.caption.bold()).foregroundStyle(.red)
                         }
-                    }.petCard(answerBackground(option), radius: 16)
+                    }
+                    .frame(minHeight: 49)
+                    .padding(.horizontal, 12)
+                    .background(answerBackground(option), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(alignment: .bottomLeading) { Rectangle().fill(palette.rule).frame(height: 1) }
+                    .contentShape(Rectangle())
                 }.buttonStyle(.plain).disabled(checked)
             }
             if checked {
@@ -316,7 +326,7 @@ struct Quiz: View {
     private func answerBackground(_ option: Int) -> Color {
         if checked && option == question.correct { return mint }
         if checked && selected == option { return .red.opacity(0.10) }
-        return selected == option ? palette.panel : .white
+        return selected == option ? palette.panel : .clear
     }
 
     private var buttonTitle: String {
