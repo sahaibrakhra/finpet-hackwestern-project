@@ -29,16 +29,13 @@ struct MascotService {
         let frames: [Data]
     }
 
-    /// The simulator shares the Mac's loopback. Physical devices use the configured address.
+    /// The deployed backend (Northflank) from `FinPetBackendURL` in Info.plist; localhost if it is unset.
+    /// To develop against a local server instead, set FinPetBackendURL to http://localhost:8000.
     static var baseURL: URL {
         let local = URL(string: "http://localhost:8000")!
-        #if targetEnvironment(simulator)
-        return local
-        #else
         guard let configured = Bundle.main.object(forInfoDictionaryKey: "FinPetBackendURL") as? String,
-              let url = URL(string: configured), url.host != nil else { return local }
+              let url = URL(string: configured.trimmingCharacters(in: .whitespaces)), url.host != nil else { return local }
         return url
-        #endif
     }
 
     /// Uploads the photo; the server asks Gemini for a full-body avatar and cuts out its background.
