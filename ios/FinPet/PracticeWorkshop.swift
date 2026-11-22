@@ -68,15 +68,32 @@ struct PracticeWorkshop {
         return Question(prompt, options.map { "$" + $0.formatted() }, position, "The calculation is \(calculation(value)).")
     }
 
+    private func display(_ field: (String, Int)) -> (label: String, value: String) {
+        let money = field.0.hasSuffix(" (CAD)")
+        let label = money ? String(field.0.dropLast(6)) : field.0
+        return (label, (money ? "$" : "") + field.1.formatted())
+    }
+
     var example: LessonExample {
-        func display(_ field: (String, Int)) -> (String, String) {
-            let money = field.0.hasSuffix(" (CAD)")
-            let label = money ? String(field.0.dropLast(6)) : field.0
-            return (label, (money ? "$" : "") + field.1.formatted())
-        }
-        return LessonExample("Worked example", [display(first), display(second),
+        LessonExample("Worked example", [display(first), display(second),
               (result, "$" + operation.apply(first.1, second.1).formatted())],
               calculation(second.1))
+    }
+
+    var walkthrough: LessonWalkthrough {
+        let start = display(first)
+        let adjustment = display(second)
+        let answer = operation.apply(first.1, second.1)
+        let direction: LessonWalkthrough.Beat.Direction = answer == first.1 ? .still : (answer > first.1 ? .up : .down)
+        return LessonWalkthrough(
+            .init(name: "Starting amount", icon: "equal.circle"),
+            .init(name: "Result", icon: "checkmark.circle"),
+            [
+                .init(start.label, start.value, context, .still),
+                .init(adjustment.label, adjustment.value, rule, .still),
+                .init(result, "$" + answer.formatted(), calculation(second.1) + ". " + reason, direction)
+            ]
+        )
     }
 
     var lesson: Lesson {

@@ -14,7 +14,19 @@ struct LessonWalkthrough {
         let rightActor: Actor?
 
         enum Direction {
-            case forward, backward, still
+            case forward, backward, up, down, still
+
+            var icon: String? {
+                switch self {
+                case .forward: "arrow.right"
+                case .backward: "arrow.left"
+                case .up: "arrow.up"
+                case .down: "arrow.down"
+                case .still: nil
+                }
+            }
+
+            var isVertical: Bool { self == .up || self == .down }
         }
 
         init(_ title: String, _ amount: String, _ note: String, _ direction: Direction, rightActor: Actor? = nil) {
@@ -36,7 +48,11 @@ struct LessonWalkthrough {
         self.beats = beats
     }
 
-    static let byLesson: [String: Self] = [
+    static func forLesson(_ id: String) -> Self? {
+        byLesson[id] ?? PracticeWorkshop.byID[id]?.walkthrough
+    }
+
+    private static let byLesson: [String: Self] = [
         "stock-ownership": Self(
             Actor(name: "Mina", icon: "person.fill"), Actor(name: "Bakery", icon: "storefront"),
             [
@@ -45,7 +61,7 @@ struct LessonWalkthrough {
                 Beat("Get a dividend", "$1", "The bakery pays Mina $1 while Mina owns the share.", .backward),
                 Beat("Sell the share", "$23", "A new investor pays Mina $23 for the share.", .backward,
                      rightActor: Actor(name: "New investor", icon: "person.fill")),
-                Beat("Work out the gain", "+$4", "Mina gets $24 back in total. Subtract the $20 Mina originally spent.", .still)
+                Beat("Work out the gain", "+$4", "Mina gets $24 back in total. Subtract the $20 Mina originally spent.", .up)
             ]
         ),
         "bond-lending": Self(
@@ -62,14 +78,14 @@ struct LessonWalkthrough {
             [
                 Beat("Start with the same amount", "$100", "Asha can put all $100 in the bakery or buy a basket of investments called a fund.", .still),
                 Beat("Compare what’s tied to the bakery", "$100 vs. $10", "The first choice puts all $100 in the bakery. Only $10 of the mixed fund is tied to the bakery.", .still),
-                Beat("Watch the bakery drop 20%", "−$20 vs. −$2", "The drop affects the amount tied to the bakery. Assume the fund’s other investments stay flat.", .still)
+                Beat("Watch the bakery drop 20%", "−$20 vs. −$2", "The drop affects the amount tied to the bakery. Assume the fund’s other investments stay flat.", .down)
             ]
         ),
         "rrsp": Self(
             Actor(name: "Sam", icon: "person.fill"), Actor(name: "Retirement savings", icon: "archivebox"),
             [
                 Beat("Put money aside", "$2,000", "Sam saves $2,000 in a Registered Retirement Savings Plan (RRSP).", .forward),
-                Beat("Take $2,000 off the tax calculation", "$48,000", "Sam earns $50,000. Claiming the $2,000 deduction leaves $48,000 in this example.", .still),
+                Beat("Take $2,000 off the tax calculation", "$48,000", "Sam earns $50,000. Claiming the $2,000 deduction leaves $48,000 in this example.", .down),
                 Beat("A deduction changes the tax bill", "$400", "If the tax on that $2,000 would have been 20%, Sam saves $400 in tax in this example.", .still),
                 Beat("Take money out later", "Tax later", "Money Sam takes out normally counts as income in the year Sam receives it.", .backward)
             ]
@@ -86,7 +102,7 @@ struct LessonWalkthrough {
             Actor(name: "You", icon: "person.fill"), Actor(name: "Savings account", icon: "archivebox"),
             [
                 Beat("Put money in", "$1,000", "A Tax-Free Savings Account (TFSA) can hold cash or investments. Deposits use some of the amount you’re allowed to put in.", .forward),
-                Beat("The investment grows", "$1,200", "The extra $200 is growth. Growth doesn’t count as money you put in.", .still),
+                Beat("The investment grows", "$1,200", "The extra $200 is growth. Growth doesn’t count as money you put in.", .up),
                 Beat("Take money out", "$1,200", "The growth is generally free of Canadian tax. The amount taken out generally adds back to your room next year.", .backward)
             ]
         ),
@@ -103,7 +119,47 @@ struct LessonWalkthrough {
             [
                 Beat("The bill closes", "$500", "Riley’s bill shows $500. That snapshot is the statement balance.", .still),
                 Beat("Pay part of the bill", "$120", "Riley pays $120. Only $380 remains on the bill due June 18.", .forward),
-                Beat("Buy groceries after the bill closes", "$40", "The later purchase raises the current balance to $420. The amount left on the June 18 bill is still $380.", .still)
+                Beat("Buy groceries after the bill closes", "$40", "The later purchase raises the current balance to $420. The amount left on the June 18 bill is still $380.", .up)
+            ]
+        ),
+        "tfsa-room": Self(
+            Actor(name: "Bank A", icon: "building.columns"), Actor(name: "Bank B", icon: "building.columns"),
+            [
+                Beat("Start with one shared limit", "$2,000", "Contribution room is how much more you can put into all of your Tax-Free Savings Accounts combined.", .still),
+                Beat("Put $600 into Bank A", "$1,400 left", "The $600 uses some of your shared room.", .down),
+                Beat("Put $400 into Bank B", "$1,000 left", "The second deposit uses the same room. A second account doesn’t give you a second limit.", .down)
+            ]
+        ),
+        "portfolio": Self(
+            Actor(name: "Portfolio A", icon: "chart.pie"), Actor(name: "Portfolio B", icon: "chart.pie.fill"),
+            [
+                Beat("Both portfolios start at $1,000", "$1,000 each", "A puts $200 into stocks. B puts $800 into stocks. The rest is in bonds and cash.", .still),
+                Beat("Stocks drop by 20%", "−$40 vs. −$160", "A loses 20% of $200. B loses 20% of $800. Assume bonds and cash stay flat.", .down),
+                Beat("Check what’s left", "$960 vs. $840", "The same stock-market move has a bigger effect on B because more of B was in stocks.", .still)
+            ]
+        ),
+        "fund-fees": Self(
+            Actor(name: "Fund A", icon: "chart.bar"), Actor(name: "Fund B", icon: "chart.bar.xaxis"),
+            [
+                Beat("Both investments gain $50", "+$50 each", "Imagine you put $1,000 into each fund and each earns the same $50 before fees.", .up),
+                Beat("Take out the fees", "−$10 vs. −$2", "In this simplified example, a 1% fee on $1,000 costs $10 and a 0.2% fee costs $2.", .down),
+                Beat("Compare the gains you keep", "$40 vs. $48", "Subtract the fee from each $50 gain. Fees are one part of choosing a fund.", .still)
+            ]
+        ),
+        "credit": Self(
+            Actor(name: "Cardholder", icon: "person.fill"), Actor(name: "Card company", icon: "creditcard"),
+            [
+                Beat("Read the bill", "$500", "The statement balance is the amount owed when the card company made the bill.", .still),
+                Beat("Pay only the minimum", "$25", "The minimum is the smallest required payment, not the whole bill.", .forward),
+                Beat("See what remains", "$475 left", "The balance drops by $25. The remaining $475 may collect interest.", .down)
+            ]
+        ),
+        "retirement-gap": Self(
+            Actor(name: "Before pension", icon: "calendar"), Actor(name: "After pension", icon: "calendar.badge.checkmark"),
+            [
+                Beat("Start with spending", "$30,000/year", "The plan already has $12,000 of yearly income, leaving $18,000 to cover each year.", .still),
+                Beat("Cover three years", "$54,000", "At $18,000 per year, three years before the pension starts add up to $54,000.", .up),
+                Beat("The pension starts", "$8,000/year", "The new $10,000 pension brings total income to $22,000. The yearly gap falls to $8,000.", .down)
             ]
         ),
         "compounding": Self(
@@ -111,7 +167,7 @@ struct LessonWalkthrough {
             [
                 Beat("Start with $100", "$100", "Assume the investment grows 10% each year for this example.", .still),
                 Beat("Leave the first gain invested", "$110", "The investment grows $10 in year one. The next year starts at $110.", .forward),
-                Beat("Earn growth on the gain too", "$121", "Ten percent of $110 is $11. The extra dollar comes from leaving the first year’s gain invested.", .still)
+                Beat("Earn growth on the gain too", "$121", "Ten percent of $110 is $11. The extra dollar comes from leaving the first year’s gain invested.", .up)
             ]
         )
     ]
@@ -174,20 +230,27 @@ struct LessonWalkthroughView: View {
         HStack(alignment: .top, spacing: 10) {
             actor(walkthrough.left)
             GeometryReader { lane in
-                let bounds = max(0, lane.size.width - 28)
+                let bounds = max(0, lane.size.width - 74)
                 ZStack {
-                    if beat.direction != .still {
+                    if beat.direction == .forward || beat.direction == .backward {
                         Capsule().fill(palette.rule).frame(height: 2)
                     }
-                    Text(beat.amount)
-                        .font(.subheadline.weight(.bold).monospacedDigit())
-                        .lineLimit(1).minimumScaleFactor(0.65)
-                        .padding(.horizontal, 7).padding(.vertical, 6)
-                        .background(palette.paper, in: Capsule())
-                        .offset(x: travel * bounds * 0.20)
+                    HStack(spacing: 4) {
+                        if let icon = beat.direction.icon {
+                            Image(systemName: icon).font(.caption.weight(.bold))
+                        }
+                        Text(beat.amount)
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .lineLimit(1).minimumScaleFactor(0.65)
+                    }
+                    .foregroundStyle(palette.accent)
+                    .padding(.horizontal, 7).padding(.vertical, 6)
+                    .background(palette.paper, in: Capsule())
+                    .offset(x: beat.direction.isVertical ? 0 : travel * bounds * 0.24,
+                            y: beat.direction.isVertical ? travel * 10 : 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }.frame(height: 43)
+            }.frame(height: 55)
             actor(beat.rightActor ?? walkthrough.right)
         }
         .accessibilityElement(children: .ignore)
@@ -215,7 +278,7 @@ struct LessonWalkthroughView: View {
         moveTask?.cancel()
         travel = 0
         guard !reduceMotion, direction != .still else { return }
-        let sign: CGFloat = direction == .forward ? 1 : -1
+        let sign: CGFloat = direction == .forward || direction == .down ? 1 : -1
         travel = -sign
         moveTask = Task { @MainActor in
             do { try await Task.sleep(for: .milliseconds(35)) } catch { return }

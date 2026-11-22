@@ -244,7 +244,8 @@ struct Quiz: View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
             let steps = lesson.plainLanguageSteps
-            if let walkthrough = LessonWalkthrough.byLesson[lesson.id] {
+            let visual = LessonWalkthrough.forLesson(lesson.id)
+            if let walkthrough = visual {
                 LessonWalkthroughView(walkthrough: walkthrough)
             } else {
                 if let setup = steps.first { Text(setup).font(.body) }
@@ -256,7 +257,7 @@ struct Quiz: View {
                     ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
                         Text(step).font(.body).lineSpacing(2)
                     }
-                    if LessonWalkthrough.byLesson[lesson.id] != nil { exampleCard }
+                    if visual != nil { exampleCard }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
             }.font(.subheadline).tint(forest)
 
