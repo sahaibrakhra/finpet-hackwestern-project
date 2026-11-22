@@ -133,7 +133,7 @@ struct Quiz: View {
                     briefingContent
                 } else if finished {
                     Text(isReview ? "Review complete" : "Challenge complete").font(.largeTitle.bold())
-                    pet.frame(width: 120)
+                    resultPet.frame(width: 120)
                     Text("\(score) of \(questionOrder.count) correct").font(.headline)
                 } else {
                     questionContent
@@ -147,6 +147,13 @@ struct Quiz: View {
                 .disabled(!briefing && selected == nil && !finished)
                 .padding(.horizontal, 20).padding(.vertical, 8).background(palette.paper)
         }
+    }
+
+    /// Under 50% correct: sad (loops). 50% or more: dance (plays once, holds the last frame).
+    private var resultPet: some View {
+        var shown = pet
+        shown.mood = Double(score) / Double(max(questionOrder.count, 1)) < 0.5 ? .cry : .dance
+        return shown
     }
 
     private var lessonTabs: some View {

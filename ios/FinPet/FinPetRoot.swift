@@ -242,6 +242,12 @@ struct FinPetRoot: View {
         Set(completed.filter { $0.key.hasPrefix("practice-") }.values.map { calendar.startOfDay(for: $0) })
     }
 
+    /// Practised yesterday or today.
+    private var usedRecently: Bool {
+        let today = calendar.startOfDay(for: day)
+        return practiceDays.contains(today) || practiceDays.contains(offset(-1, from: today))
+    }
+
     private func offset(_ days: Int, from date: Date) -> Date {
         calendar.date(byAdding: .day, value: days, to: date) ?? date
     }
@@ -280,7 +286,7 @@ struct FinPetRoot: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Customize mascot")
             }
-            MascotStage(mascot: pet())
+            MascotStage(mascot: pet(), active: usedRecently)
                 .frame(height: mascotHeight)
             VStack(alignment: .leading, spacing: 0) {
                 Text("Challenge of the day").font(.system(.title2, design: .serif, weight: .semibold)).padding(.bottom, 7)
