@@ -124,6 +124,7 @@ struct Pet: View {
 @main
 struct FinPetApp: App {
     @StateObject private var auth = AuthSession()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -135,6 +136,9 @@ struct FinPetApp: App {
                 }
             }
             .environmentObject(auth)
+            .onChange(of: scenePhase, initial: true) { _, phase in
+                if phase == .active { auth.restore() }
+            }
             .preferredColorScheme(.light)
         }
     }

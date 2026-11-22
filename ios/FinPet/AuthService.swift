@@ -1,7 +1,7 @@
 import Foundation
 import Security
 
-struct AuthUser: Decodable, Equatable {
+struct AuthUser: Codable, Equatable {
     let id: String
     let username: String
 }
@@ -16,6 +16,7 @@ private struct AuthResponse: Decodable {
 struct StoredSession: Codable {
     var token: String
     var expiresAt: Date
+    var user: AuthUser? = nil
 }
 
 enum AuthKeychain {
@@ -28,23 +29,41 @@ enum AuthKeychain {
          kSecAttrAccount as String: account]
     }
 
-    static func save(_ session: StoredSession) {
-        guard let data = try? JSONEncoder().encode(session) else { return }
-        SecItemDelete(query as CFDictionary)
+    enum ReadResult {
+        case found(StoredSession)
+        case missing
+        case unavailable(OSStatus)
+    }
+
+    static func save(_ session: StoredSession) throws {
+        let data = try JSONEncoder().encode(session)
+        let changes = [kSecValueData as String: data]
+        let update = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
+        if update == errSecSuccess { return }
+        guard update == errSecItemNotFound else { throw storageError(update) }
+
         var item = query
         item[kSecValueData as String] = data
         item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(item as CFDictionary, nil)
+        let add = SecItemAdd(item as CFDictionary, nil)
+        guard add == errSecSuccess else { throw storageError(add) }
     }
 
-    static func load() -> StoredSession? {
+    static func load() -> ReadResult {
         var item = query
         item[kSecReturnData as String] = true
         item[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        guard SecItemCopyMatching(item as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return try? JSONDecoder().decode(StoredSession.self, from: data)
+        let status = SecItemCopyMatching(item as CFDictionary, &result)
+        if status == errSecItemNotFound { return .missing }
+        guard status == errSecSuccess else { return .unavailable(status) }
+        guard let data = result as? Data,
+              let session = try? JSONDecoder().decode(StoredSession.self, from: data) else { return .missing }
+        return .found(session)
+    }
+
+    private static func storageError(_ status: OSStatus) -> AuthError {
+        .message("FinPet couldn’t save your sign-in to Keychain (\(status)). Please try again.")
     }
 
     static func clear() { SecItemDelete(query as CFDictionary) }
@@ -65,14 +84,25 @@ final class AuthSession: ObservableObject {
     @Published private(set) var state: State = .checking
     private var token: String?
 
-    init() {
-        if let stored = AuthKeychain.load(), stored.expiresAt > Date() {
+    init() { restore() }
+
+    func restore() {
+        guard case .checking = state else { return }
+        switch AuthKeychain.load() {
+        case .found(let stored) where stored.expiresAt > Date():
             token = stored.token
-            state = .signedIn(nil)
+            state = .signedIn(stored.user)
             Task { await validate(stored.token) }
-        } else {
+        case .found:
             AuthKeychain.clear()
             state = .signedOut
+        case .missing:
+            state = .signedOut
+        case .unavailable(let status):
+            // A locked device can temporarily block Keychain access.
+            if status != errSecInteractionNotAllowed && status != errSecNotAvailable {
+                state = .signedOut
+            }
         }
     }
 
@@ -102,7 +132,7 @@ final class AuthSession: ObservableObject {
               let expires = Self.parseDate(auth.expires_at) else {
             throw AuthError.message("Unexpected response from the server.")
         }
-        AuthKeychain.save(StoredSession(token: auth.token, expiresAt: expires))
+        try AuthKeychain.save(StoredSession(token: auth.token, expiresAt: expires, user: auth.user))
         token = auth.token
         state = .signedIn(auth.user)
     }
