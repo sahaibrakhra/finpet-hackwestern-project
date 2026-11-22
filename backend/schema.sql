@@ -112,3 +112,8 @@ revoke all on public.users, public.user_stats, public.friendships, public.friend
 -- PostgREST also requires table privileges for the backend's service role.
 grant select, insert on table public.users to service_role;
 grant update (last_login_at) on table public.users to service_role;
+
+-- Friends feature: the backend needs these on the friend tables (run again safely any time).
+grant select, insert, update, delete on table public.friendships to service_role;
+grant select, insert, update, delete on table public.friend_streaks to service_role;
+grant select, update on table public.user_stats to service_role;

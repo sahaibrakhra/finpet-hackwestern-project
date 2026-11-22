@@ -36,8 +36,6 @@ struct FinPetRoot: View {
     @AppStorage("finpet.education.history") private var history = Data()
     @AppStorage("finpet.education.attempts") private var attemptData = Data()
     @AppStorage("finpet.education.reviews") private var reviewData = Data()
-    @AppStorage("finpet.ref.checkins") private var checkins = ""
-    @AppStorage("finpet.ref.friends") private var extraFriends = ""
     @EnvironmentObject private var auth: AuthSession
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,10 +43,8 @@ struct FinPetRoot: View {
     @State private var day = Date()
     @State private var page: Page = .home
     @State private var sheet: Sheet?
-    @State private var invite = false
     @State private var monthlyExpanded = false
     @State private var focusedUnit: String?
-    @State private var friendName = ""
 
     private var palette: MascotPalette {
         MascotPalette(base: matchAvatarPalette ? (avatarBase ?? UIColor(color.fill)) : UIColor(color.fill))
@@ -108,7 +104,7 @@ struct FinPetRoot: View {
                         switch page {
                         case .home: home(mascotHeight: viewport.size.height * 0.48)
                         case .learn: learn(scroll: scroll)
-                        case .friends: friends
+                        case .friends: FriendsView()
                         }
                     }
                     .padding(.horizontal, page == .home ? 0 : 22)
@@ -183,19 +179,6 @@ struct FinPetRoot: View {
             }
         }
         .environment(\.mascotPalette, palette)
-        .alert("Start a shared streak", isPresented: $invite) {
-            TextField("Friend’s name", text: $friendName)
-            Button("Add demo friend") {
-                let value = friendName.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !value.isEmpty && !value.contains("|") && !allFriends.contains(where: { $0.name == value }) {
-                    extraFriends += extraFriends.isEmpty ? value : "|" + value
-                }
-                friendName = ""
-            }
-            Button("Cancel", role: .cancel) { friendName = "" }
-        } message: {
-            Text("This adds a friend to the local demo.")
-        }
     }
 
     private var tabs: some View {
@@ -563,73 +546,5 @@ struct FinPetRoot: View {
             .background(current ? palette.accent : (done ? palette.panel : palette.paper), in: Circle())
             .overlay { Circle().strokeBorder(current ? .clear : palette.rule) }
             .accessibilityHidden(true)
-    }
-
-    private var allFriends: [(name: String, days: Int, ready: Bool, color: PetColor)] {
-        [("Priya", 21, true, .berry), ("Sam", 9, true, .sunny), ("Jordan", 5, false, .sky)] +
-        extraFriends.split(separator: "|").map { (String($0), 0, false, .leaf) }
-    }
-
-    private var friends: some View {
-        VStack(alignment: .leading, spacing: 19) {
-            HStack {
-                heading("Friends")
-                Button {
-                    invite = true
-                } label: {
-                    Label("Invite", systemImage: "person.badge.plus")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12).frame(minHeight: 44)
-                        .background(palette.panel, in: RoundedRectangle(cornerRadius: 9))
-                }.buttonStyle(.plain).foregroundStyle(palette.accent)
-                Menu {
-                    Button("Log out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { auth.logOut() }
-                } label: {
-                    Image(systemName: "ellipsis").frame(width: 44, height: 44)
-                        .foregroundStyle(palette.accent)
-                }.accessibilityLabel("Account options")
-            }
-            Text("Shared streaks")
-                .font(.system(.title2, design: .serif, weight: .semibold))
-            VStack(spacing: 0) {
-                ForEach(allFriends, id: \.name) { friend in
-                    friendRow(name: friend.name, days: friend.days, ready: friend.ready, color: friend.color)
-                    Divider()
-                }
-            }
-            Button {
-                invite = true
-            } label: {
-                Label("Start a shared streak", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold)).frame(minHeight: 44)
-            }.buttonStyle(.plain).foregroundStyle(palette.accent)
-        }
-    }
-
-    private func friendRow(name: String, days: Int, ready: Bool, color: PetColor) -> some View {
-        let checked = checkins.split(separator: "|").contains(Substring(name))
-        return HStack(spacing: 12) {
-            Pet(color: color).frame(width: 50, height: 50)
-                .background(palette.panel, in: Circle())
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name).font(.headline)
-                Text(checked ? "You checked in" : (ready ? "Your turn" : "Waiting for a check-in"))
-                    .font(.footnote).foregroundStyle(muted)
-            }
-            Spacer(minLength: 6)
-            VStack(alignment: .trailing, spacing: 5) {
-                Label("\(days + (checked && ready ? 1 : 0))", systemImage: "flame.fill")
-                    .font(.footnote.monospacedDigit().weight(.semibold)).foregroundStyle(muted)
-                Button {
-                    checkins += checkins.isEmpty ? name : "|" + name
-                } label: {
-                    Text(checked ? "Done" : "Check in").font(.footnote.weight(.semibold))
-                        .padding(.horizontal, 10).frame(minHeight: 32)
-                        .background(palette.panel, in: RoundedRectangle(cornerRadius: 8))
-                }
-                .buttonStyle(.plain).foregroundStyle(palette.accent).disabled(checked)
-                .changeEffect(.feedback(hapticNotification: .success), value: checked, isEnabled: checked)
-            }
-        }.padding(.vertical, 10)
     }
 }
