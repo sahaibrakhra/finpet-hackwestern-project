@@ -2,9 +2,13 @@ import SwiftUI
 
 struct MascotStage: View {
     let mascot: Pet
+    /// True when the user practised yesterday or today.
+    var active = true
     @Environment(\.mascotPalette) private var palette
-    /// Tap = wave, long press = dance, then back to idle. Only plays clips that are already saved.
+    /// Active: opening the page waves, a tap waves, tapping again while it waves dances; each then returns
+    /// to the looping idle. Inactive: the looping sad clip, and taps do nothing. Only plays saved clips.
     @State private var burst: PetMood?
+    @State private var burstToken = 0
 
     var body: some View {
         let library = AvatarLibrary.shared
@@ -35,20 +39,31 @@ struct MascotStage: View {
 
     private var playing: some View {
         var shown = mascot
-        if let burst { shown.mood = burst }
+        shown.mood = active ? (burst ?? .idle) : .cry
         return shown
-            .onTapGesture { play(.wave) }
-            .onLongPressGesture { play(.dance) }
+            .onAppear { if active { play(.wave) } }
+            .onChange(of: active) { _, nowActive in if nowActive { play(.wave) } else { burst = nil } }
+            .onTapGesture { tapped() }
+    }
+
+    private func tapped() {
+        guard active else { return }
+        switch burst {
+        case nil: play(.wave)
+        case .wave?: play(.dance)
+        default: break
+        }
     }
 
     private func play(_ mood: PetMood) {
         let library = AvatarLibrary.shared
-        guard burst == nil, let id = library.activeID,
-              let clip = library.clip(id: id, mood: mood) else { return }
+        guard let id = library.activeID, let clip = library.clip(id: id, mood: mood) else { return }
         burst = mood
+        burstToken += 1
+        let token = burstToken
         Task {
             try? await Task.sleep(for: .seconds(clip.duration))
-            burst = nil
+            if burstToken == token { burst = nil }
         }
     }
 }
