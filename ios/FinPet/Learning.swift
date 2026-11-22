@@ -59,36 +59,36 @@ enum LessonLibrary {
     ])
 
     static let stockOwnership = Lesson(id: "stock-ownership", title: "Own a piece of a company", briefing: [
-        "Imagine a bakery is divided into tiny pieces of ownership. A share is one piece, and stock is what we call that kind of ownership. Buying a share makes you a part-owner.",
-        "You can make money if you sell a share for more than you paid. Some companies also pay owners a bit of cash called a dividend. The company can choose to reduce or stop those payments.",
-        "If the price falls and you sell, you can lose money. In this example you pay $20, sell for $23, and receive $1 along the way. Your gain is $4 before fees and taxes."
+        "Mina pays $20 for one share of a bakery. A share is a small piece of ownership in a company.",
+        "The bakery pays Mina $1 while Mina owns the share. That $1 is a dividend, a payment the bakery can choose to make to its owners. Later, a different investor buys Mina’s share for $23. The $23 comes from that buyer. The $1 came from the bakery.",
+        "Mina got $24 back altogether, but spent $20 to buy the share. The gain is $24 minus $20, or $4 before fees and taxes. If the next buyer offers only $15 and the bakery pays no dividend, selling gives Mina a $5 loss."
     ], questions: [
         Question("You buy one share in a bakery. What did you buy?", ["A small piece of ownership", "A loan the bakery must repay", "A promise of free bread"], 0, "A share makes you a part-owner of the business."),
-        Question("The bakery shares some cash with its owners. What is that payment called?", ["A loan payment", "A dividend"], 1, "A dividend is money a company may choose to pay its owners."),
+        Question("The bakery pays Mina $1, and another investor pays Mina $23 for the share. Which payment is the dividend?", ["The $23 from the investor", "The $1 from the bakery"], 1, "The company pays the dividend. The other investor pays the sale price."),
         Question("You buy a share for $20, receive $1, and sell for $23. What did you gain before fees and taxes?", ["$3", "$4", "$24"], 1, "You made $3 when you sold it and received $1 while you owned it."),
         Question("True or false? Owning a share guarantees you’ll receive a dividend.", ["True", "False"], 1, "Companies can pay, change, or skip dividends."),
         Question("If you paid $20 and sell for $15 without receiving cash along the way, what happens?", ["You lose $5", "You still gain $5", "The company must pay the price back"], 0, "The sale returns $5 less than you paid.")
     ])
 
     static let bondLending = Lesson(id: "bond-lending", title: "Lend money by buying a bond", briefing: [
-        "Imagine a city needs money for a bridge. It can sell a bond. If you buy one at the start, you lend money to the city. You don’t own a piece of the city or the bridge.",
-        "The borrower promises to pay back the original amount on a set date. That date is called maturity. Many bonds also pay interest, which is money the borrower pays you for lending.",
-        "A promise still carries risk. The borrower might fail to pay. And if you sell the bond to someone else before the repayment date, the price you get can be lower than what you paid."
+        "A city needs money for a bridge. Leo buys a $100 bond from the city. Leo is lending $100 to the city, which promises $4 in interest plus the $100 back in a year.",
+        "The date when the city is scheduled to repay the $100 is called maturity. If Leo keeps the bond until then and the city pays as promised, Leo receives $104. The extra $4 is the gain. The other $100 is Leo’s original money coming back.",
+        "If Leo needs cash sooner, Leo can try to sell the bond. The next buyer gets the city’s promised payments. If similar new bonds pay more interest, the buyer may offer less than $100 for Leo’s bond. In that case, Leo’s sale price is the buyer’s offer, not the $100 the city promises to repay at maturity."
     ], questions: [
         Question("You buy a bond from a city that is building a bridge. What are you doing?", ["Buying part of the city", "Lending money to the city"], 1, "A bond is a loan to the borrower."),
         Question("The city borrows $100 and promises $4 of interest. If both are paid, how much do you receive altogether?", ["$4", "$100", "$104"], 2, "You receive your $100 back plus $4 of interest."),
         Question("The bond reaches maturity. What does that mean?", ["The scheduled repayment date arrived", "You become a part-owner"], 0, "Maturity is the scheduled date for paying back the original amount."),
         Question("True or false? The borrower might fail to make a promised payment.", ["True", "False"], 0, "A promise to pay can be broken if the borrower cannot pay."),
-        Question("You sell a bond before its repayment date. Must another buyer pay exactly what you paid?", ["Yes", "No, the price can change"], 1, "Bonds can trade at different prices before repayment.")
+        Question("Similar new bonds pay more interest. Why might a buyer offer less than $100 for Leo’s bond?", ["Leo’s bond still promises less interest than the new bonds", "The city must raise the interest on Leo’s bond"], 0, "A buyer comparing the old and new bonds may want a lower purchase price to make up for the lower payments.")
     ])
 
     static let investments = Lesson(id: "investments", title: "Buy a basket of investments", briefing: [
-        "Buying one company’s shares puts the result in that one company’s hands. A fund pools money from many people to buy a basket of investments. Buying part of the fund gives you exposure to the basket.",
-        "An exchange-traded fund (ETF) is a fund that trades on a stock exchange, a marketplace for investments. A mutual fund is another kind of pooled fund. Check what either one actually holds.",
-        "Spreading money among different investments is called diversification. It can reduce the effect of one company doing badly. A whole basket can still fall."
+        "Asha has $100 to invest. Asha could buy shares in one bakery or buy part of a fund that owns shares in a bakery, a grocer, and other companies. A fund combines money from many investors to buy those shares.",
+        "Compare the same bakery loss. If Asha puts $100 directly into bakery shares and the shares fall 20%, Asha loses $20. If Asha puts $100 into a fund and only $10 of that investment is tied to the bakery, the bakery’s 20% drop costs $2, assuming the other companies stay flat.",
+        "That spreading is called diversification. It softens the impact of one company falling, but the fund can still lose money if many companies fall. An exchange-traded fund (ETF) is a fund that you can buy or sell on a stock exchange, a marketplace for investments."
     ], questions: [
         Question("What do you buy when you buy part of a fund?", ["One company chosen at random", "A share in a basket of investments"], 1, "The fund owns the basket. You own a part of the fund."),
-        Question("What does ETF mean?", ["Exchange-traded fund", "Extra tax fee"], 0, "ETF stands for exchange-traded fund."),
+        Question("Asha has $10 tied to the bakery through the fund. Bakery shares fall 20% and everything else stays flat. How much does Asha lose?", ["$20", "$2", "$10"], 1, "The 20% drop applies only to the $10 tied to the bakery. Twenty percent of $10 is $2."),
         Question("You own one bakery stock and it falls. Why might a broad basket fall less?", ["The bakery is only one piece of the basket", "Funds can’t lose money"], 0, "The other holdings can do differently from the bakery."),
         Question("True or false? A fund can lose value even if it holds many companies.", ["True", "False"], 0, "A drop can affect many companies at once."),
         Question("Two funds have different names. How can you tell if they mostly own the same things?", ["Compare what they hold", "Compare the logos"], 0, "The list of investments shows whether the baskets overlap.")
@@ -244,27 +244,20 @@ struct Quiz: View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
             let steps = lesson.plainLanguageSteps
-            if !lesson.abbreviations.isEmpty {
-                VStack(alignment: .leading, spacing: 9) {
-                    ForEach(lesson.abbreviations) { word in
-                        (Text(word.id + "  ").bold() + Text(word.meaning))
-                            .font(.subheadline)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.leading, 12)
-                .overlay(alignment: .leading) { Rectangle().fill(palette.rule).frame(width: 2) }
+            if let setup = steps.first {
+                Text(setup).font(.body).lineSpacing(3)
             }
+            exampleCard
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
+                ForEach(Array(steps.dropFirst().enumerated()), id: \.offset) { _, step in
                     Text(step).font(.body).lineSpacing(3)
                 }
             }
-            exampleCard
-            if !lesson.relevantWords.isEmpty {
-                DisclosureGroup("What these words mean") {
+            let glossary = lesson.abbreviations + lesson.relevantWords
+            if !glossary.isEmpty {
+                DisclosureGroup("Look up a word") {
                     VStack(alignment: .leading, spacing: 10) {
-                        ForEach(lesson.relevantWords) { word in
+                        ForEach(glossary) { word in
                             (Text(word.id + "  ").bold() + Text(word.meaning))
                                 .font(.subheadline)
                         }

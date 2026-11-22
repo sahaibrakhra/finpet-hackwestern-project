@@ -63,11 +63,11 @@ extension Lesson {
                 "Both accounts share the same contribution room.")
         case "rrsp":
             LessonExample("Illustrative RRSP deduction", [("Income before deduction", "$50,000"),
-                ("Eligible deduction claimed", "−$2,000"), ("Income after this deduction", "$48,000")],
+                ("Amount taken off income for tax", "−$2,000"), ("Income used for the tax calculation", "$48,000")],
                 "This shows the effect of one deduction. Your final tax bill depends on your full return.")
         case "rrsp-withdrawals":
-            LessonExample("Example withdrawal receipt", [("Gross withdrawal", "$1,000"), ("Illustrative withholding", "−$100"),
-                ("Cash received", "$900")], "The withholding is a prepayment. The gross withdrawal is generally reported as income.")
+            LessonExample("Example withdrawal receipt", [("Leaves Jo’s retirement account", "$1,000"), ("Bank sends toward Jo’s taxes", "$100"),
+                ("Jo receives", "$900")], "A single $1,000 withdrawal goes to two places: $900 to Jo and $100 toward tax.")
         case "credit":
             LessonExample("Sample credit card statement", [("Statement balance", "$500.00"), ("Minimum payment", "$25.00"),
                 ("Payment due", "December 14"), ("Balance after minimum payment", "$475.00")],
@@ -85,15 +85,16 @@ extension Lesson {
                 ("Ordinary withdrawal", "Generally taxable"), ("Eligible direct transfer to RRSP", "Generally no immediate tax")],
                 "The rules depend on the type of transaction. Check the criteria before taking money out.")
         case "stock-ownership":
-            LessonExample("One share of a bakery", [("Price paid", "$20"), ("Price when sold", "$23"),
-                ("Dividend received", "$1"), ("Gain before fees and taxes", "$4")],
+            LessonExample("One share of a bakery", [("Mina pays for the share", "$20"), ("Next investor pays Mina", "$23"),
+                ("Bakery pays Mina while Mina owns it", "$1"), ("Mina keeps after subtracting the $20", "$4")],
                 "Start with the $3 difference in price, then add the $1 paid while you owned it.")
         case "bond-lending":
             LessonExample("A simple one-year city bond", [("Amount you lend", "$100"), ("Interest promised", "$4"),
                 ("Total if both are paid", "$104")], "You get the $100 loan back plus the $4 paid for lending.")
         case "investments":
-            LessonExample("What you own", [("Stock", "A share in a company"), ("Bond", "Debt issued by a borrower"),
-                ("Broad fund", "A basket of investments")], "The holdings and fees tell you more about a fund than its name.")
+            LessonExample("Same bakery loss, two choices", [("Bakery shares fall", "20%"),
+                ("$100 in the bakery alone", "$20 loss"), ("$100 in a fund with $10 tied to the bakery", "$2 loss")],
+                "Only the bakery shares fall in this example.")
         case "fund-fees":
             LessonExample("Same hypothetical $1,000 invested", [("Gross gain at 5%", "$50"),
                 ("Illustrative fee at 1%", "$10"), ("Illustrative fee at 0.2%", "$2")],
@@ -122,21 +123,21 @@ extension LessonLibrary {
     ])
 
     static let rrsp = Lesson(id: "rrsp", title: "Why people use an RRSP", briefing: [
-        "Imagine saving part of your paycheque for when you stop working. A Registered Retirement Savings Plan (RRSP) is a Canadian account designed for that. You can hold cash or investments inside it.",
-        "Income tax is money the government collects on income. If you put money into an RRSP and claim an allowed deduction, you lower the income used to calculate your tax. In this example, $50,000 minus a $2,000 deduction leaves $48,000 before other deductions.",
-        "You generally don’t pay tax on growth while the money stays inside. When you take money out normally, it generally counts as income for that year. Check how much you’re allowed to put in on your latest notice of assessment, the summary the Canada Revenue Agency sends after processing your tax return."
+        "Sam earns $50,000 and puts $2,000 into a Registered Retirement Savings Plan (RRSP). An RRSP is an account for money Sam wants to save for retirement.",
+        "Sam claims the $2,000 as an allowed deduction. That means $2,000 is subtracted from the income used to calculate tax: $50,000 becomes $48,000 before other deductions. The government does not give Sam $2,000 back. For example, if tax on that portion of income would have been 20%, the deduction saves $400 in tax. The 20% is just for this example.",
+        "Sam generally pays no tax on the money’s growth while the money stays in the account. When Sam makes a normal withdrawal in retirement, the amount taken out generally counts as income for that year. To check how much can go into the account now, Sam can start with the notice of assessment, the summary the Canada Revenue Agency sends after processing a tax return."
     ], questions: [
         Question("Why might someone open an RRSP?", ["To borrow money from the government", "To put money aside for retirement"], 1, "The account is designed to help you save for when you stop working."),
         Question("You earn $50,000 and claim a $2,000 deduction. What amount is left before other deductions?", ["$48,000", "$50,000", "$52,000"], 0, "The deduction gets subtracted from income used to calculate tax."),
-        Question("True or false? A $2,000 deduction means you automatically get $2,000 back.", ["True", "False"], 1, "It reduces the income used to calculate tax. Your tax savings depend on your tax situation."),
+        Question("Suppose tax on the $2,000 Sam deducted would have been 20%. How much tax would that deduction save in this example?", ["$2,000", "$400", "$48,000"], 1, "The deduction takes $2,000 out of the tax calculation. At the example rate, $2,000 × 20% is $400 in tax saved."),
         Question("Your savings grow inside the account. When is tax usually due under the ordinary rules?", ["Every time the account grows", "When you take money out"], 1, "In an RRSP, tax is generally deferred while the money stays inside."),
         Question("You want to know how much you’re allowed to put in. What should you check?", ["Your notice of assessment and recent deposits", "Only what the investments are worth today"], 0, "The notice helps you check room. Recent deposits may already have used part of it.")
     ])
 
     static let rrspWithdrawals = Lesson(id: "rrsp-withdrawals", title: "Read an RRSP withdrawal", briefing: [
-        "An ordinary RRSP withdrawal is generally included in taxable income. The financial institution usually withholds some tax before paying you.",
-        "The gross withdrawal is the amount taken out. The net payment is what reaches you after withholding.",
-        "Withholding is a prepayment. The final tax result is calculated on the tax return."
+        "Jo asks the bank to take $1,000 out of a Registered Retirement Savings Plan (RRSP). The bank sends $100 toward Jo’s tax bill and pays Jo the other $900.",
+        "Follow where the money goes. The account loses the full $1,000. The $900 is what reaches Jo’s bank account. The $100 is called tax withheld because the bank holds that amount back and sends the money toward Jo’s taxes.",
+        "When Jo files a tax return, Jo generally reports the full $1,000 as income. The $100 sent by the bank counts as tax already paid. Jo’s final tax can be different from $100 because the return takes Jo’s other income into account."
     ], questions: [
         Question("You take out $1,000 and $100 is withheld. What reaches you?", ["$900", "$1,000", "$1,100"], 0, "The net payment is the gross withdrawal minus withholding."),
         Question("Which amount is generally included in income in this example?", ["$900", "$1,000"], 1, "The gross withdrawal is generally reported."),

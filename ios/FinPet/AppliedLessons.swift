@@ -65,9 +65,9 @@ extension LessonLibrary {
     ])
 
     static let cardPayment = Lesson(id: "card-payment", title: "Work out what to pay", briefing: [
-        "Start with the statement balance, then subtract payments already posted toward that statement. Compare what remains with your available cash.",
-        "A purchase made after the statement date can raise your current balance without changing that statement’s balance.",
-        "Paying at least the minimum and paying the whole statement are different actions. With an applicable purchase grace period, clearing the statement by its due date generally avoids interest on eligible purchases."
+        "Riley’s credit card bill shows $500 owed when the billing period ended. That snapshot is the statement balance. Riley has already paid $120 toward that bill.",
+        "The $120 payment leaves $380 on this bill. Later, Riley spends $40 on groceries. The card app might now say $420 is owed in total, but only $380 is left from the bill due June 18. The $40 purchase came after the bill was made.",
+        "Riley’s $120 payment covered the $25 minimum, the least the card company requires. Clearing the rest of the bill by June 18 is a different goal. If the card’s purchase grace period applies, paying the full bill on time generally avoids purchase interest."
     ], questions: [
         Question("How much of the statement balance remains after the $120 payment?", ["$380", "$420", "$500"], 0, "$500 minus $120 leaves $380."),
         Question("Which amount belongs to the next statement period in this example?", ["The $40 new purchase", "The original $500 statement"], 0, "The $40 purchase happened after the statement date."),
