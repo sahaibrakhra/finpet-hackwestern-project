@@ -1,4 +1,5 @@
 import SwiftUI
+import Pow
 
 struct Lesson: Identifiable {
     let id: String
@@ -95,6 +96,7 @@ enum LessonLibrary {
 
 struct Quiz: View {
     @Environment(\.mascotPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let pet: Pet
     let lesson: Lesson
     let completed: (Int, [Int]) -> Void
@@ -108,6 +110,7 @@ struct Quiz: View {
     @State private var checked = false
     @State private var score = 0
     @State private var finished = false
+    @State private var celebrate = false
 
     private var isReview: Bool { !reviewQuestions.isEmpty }
     private var briefing: Bool { showingBriefing ?? !isReview }
@@ -139,6 +142,8 @@ struct Quiz: View {
             }.padding(20)
         }
         .id(briefing ? -1 : (finished ? questionOrder.count : index))
+        .changeEffect(.feedback(hapticNotification: .success), value: score)
+        .changeEffect(.feedback(hapticNotification: .warning), value: missed.count)
         .foregroundStyle(ink).background(palette.paper.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             ActionButton(title: buttonTitle, secondary: !briefing && selected == nil && !finished, action: advance)
@@ -158,6 +163,7 @@ struct Quiz: View {
                 let size = min(stage.size.width, stage.size.height)
                 resultPet
                     .frame(width: size, height: size)
+                    .changeEffect(.jump(height: 8), value: celebrate, isEnabled: celebrate && !reduceMotion)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
             }
@@ -171,6 +177,10 @@ struct Quiz: View {
                 .foregroundStyle(muted)
         }
         .frame(maxWidth: .infinity)
+        .task {
+            await Task.yield()
+            celebrate = true
+        }
     }
 
     private var resultRemark: String {

@@ -39,11 +39,13 @@ struct FinPetRoot: View {
     @AppStorage("finpet.ref.friends") private var extraFriends = ""
     @EnvironmentObject private var auth: AuthSession
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var avatarBase: UIColor?
     @State private var day = Date()
     @State private var page: Page = .home
     @State private var sheet: Sheet?
     @State private var invite = false
+    @State private var monthlyExpanded = false
     @State private var friendName = ""
 
     private var palette: MascotPalette {
@@ -380,15 +382,45 @@ struct FinPetRoot: View {
         let mostInOneDay = byDay.values.map(\.count).max() ?? 0
         let perfectLessons = Set(month.filter { $0.score == $0.questions }.map(\.lessonID)).count
         let exercises = month.reduce(0) { $0 + $1.questions }
-        return VStack(alignment: .leading, spacing: 12) {
-            Text(day.formatted(.dateTime.month(.wide))).font(.subheadline).foregroundStyle(muted)
-            questRow("Finish 3 different lessons in one day", mostInOneDay, 3)
-            questRow("Get a perfect score on 2 lessons", perfectLessons, 2)
-            questRow("Complete 25 questions", exercises, 25)
-            Button("Browse lessons") { page = .learn }
-                .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
-                .padding(.vertical, 6)
+        let goalsMet = [mostInOneDay >= 3, perfectLessons >= 2, exercises >= 25].filter { $0 }.count
+        return VStack(alignment: .leading, spacing: 0) {
+            // An inline expansion keeps the monthly details paired with their summary.
+            Button {
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.28)) {
+                    monthlyExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(day.formatted(.dateTime.month(.wide))).font(.headline)
+                        Text("\(goalsMet) of 3 goals complete")
+                            .font(.subheadline).foregroundStyle(muted)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.subheadline.weight(.semibold))
+                        .rotationEffect(.degrees(monthlyExpanded ? 180 : 0))
+                        .foregroundStyle(palette.accent)
+                }.padding(15).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(monthlyExpanded ? "Collapses monthly goals" : "Shows monthly goals")
+
+            if monthlyExpanded {
+                VStack(alignment: .leading, spacing: 14) {
+                    Divider()
+                    questRow("Finish 3 different lessons in one day", mostInOneDay, 3)
+                    questRow("Get a perfect score on 2 lessons", perfectLessons, 2)
+                    questRow("Complete 25 questions", exercises, 25)
+                    Button("Browse lessons") { page = .learn }
+                        .font(.subheadline.weight(.semibold)).foregroundStyle(palette.accent)
+                        .padding(.vertical, 4)
+                }
+                .padding(.horizontal, 15).padding(.bottom, 12)
+                .transition(reduceMotion ? .identity : .opacity)
+            }
         }
+        .background(palette.panel, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private func questRow(_ title: String, _ value: Int, _ target: Int) -> some View {
@@ -398,7 +430,7 @@ struct FinPetRoot: View {
                 Spacer()
                 Text("\(min(value, target))/\(target)").bold()
             }.font(.footnote)
-            Meter(progress: Double(value) / Double(target), background: palette.panel)
+            Meter(progress: Double(value) / Double(target), background: palette.rule)
         }
     }
 
