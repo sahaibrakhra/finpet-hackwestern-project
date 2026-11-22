@@ -84,6 +84,13 @@ extension Lesson {
             LessonExample("Compare three routes", [("Qualifying first-home withdrawal", "Tax-free"),
                 ("Ordinary withdrawal", "Generally taxable"), ("Eligible direct transfer to RRSP", "Generally no immediate tax")],
                 "The rules depend on the type of transaction. Check the criteria before taking money out.")
+        case "stock-ownership":
+            LessonExample("One share of a bakery", [("Price paid", "$20"), ("Price when sold", "$23"),
+                ("Dividend received", "$1"), ("Gain before fees and taxes", "$4")],
+                "Start with the $3 difference in price, then add the $1 paid while you owned it.")
+        case "bond-lending":
+            LessonExample("A simple one-year city bond", [("Amount you lend", "$100"), ("Interest promised", "$4"),
+                ("Total if both are paid", "$104")], "You get the $100 loan back plus the $4 paid for lending.")
         case "investments":
             LessonExample("What you own", [("Stock", "A share in a company"), ("Bond", "Debt issued by a borrower"),
                 ("Broad fund", "A basket of investments")], "The holdings and fees tell you more about a fund than its name.")
@@ -114,16 +121,16 @@ extension LessonLibrary {
         Question("Does a withdrawal immediately restore room?", ["Yes", "Generally the following calendar year"], 1, "A withdrawal generally creates new room on January 1 of the following year.")
     ])
 
-    static let rrsp = Lesson(id: "rrsp", title: "RRSP basics", briefing: [
-        "An RRSP is a Canadian registered retirement savings plan. It may hold eligible investments such as cash, GICs, stocks, or funds.",
-        "Eligible contributions you claim as deductions can reduce taxable income. Check the RRSP information on your latest CRA notice of assessment before contributing.",
-        "Growth generally isn’t taxed while it stays inside the RRSP. Ordinary withdrawals are generally taxable."
+    static let rrsp = Lesson(id: "rrsp", title: "Why people use an RRSP", briefing: [
+        "Imagine saving part of your paycheque for when you stop working. A Registered Retirement Savings Plan (RRSP) is a Canadian account designed for that. You can hold cash or investments inside it.",
+        "Income tax is money the government collects on income. If you put money into an RRSP and claim an allowed deduction, you lower the income used to calculate your tax. In this example, $50,000 minus a $2,000 deduction leaves $48,000 before other deductions.",
+        "You generally don’t pay tax on growth while the money stays inside. When you take money out normally, it generally counts as income for that year. Check how much you’re allowed to put in on your latest notice of assessment, the summary the Canada Revenue Agency sends after processing your tax return."
     ], questions: [
-        Question("What is an RRSP?", ["A registered retirement savings plan", "A type of company share"], 0, "The plan can hold eligible investments."),
-        Question("You earn $50,000 and claim an eligible $2,000 deduction. What is income after that deduction alone?", ["$48,000", "$50,000", "$52,000"], 0, "The example subtracts the deduction from income."),
-        Question("Where can you check your CRA RRSP information?", ["Your latest notice of assessment", "A credit card receipt"], 0, "The notice provides details relevant to your available room and deduction."),
-        Question("When is investment growth generally taxed?", ["Each year while it stays in the plan", "When funds are withdrawn"], 1, "An RRSP generally defers tax while the money remains in the plan."),
-        Question("Does a $2,000 deduction necessarily put $2,000 in your pocket?", ["Yes", "No, it generally reduces taxable income"], 1, "Tax savings depend on your tax situation.")
+        Question("Why might someone open an RRSP?", ["To borrow money from the government", "To put money aside for retirement"], 1, "The account is designed to help you save for when you stop working."),
+        Question("You earn $50,000 and claim a $2,000 deduction. What amount is left before other deductions?", ["$48,000", "$50,000", "$52,000"], 0, "The deduction gets subtracted from income used to calculate tax."),
+        Question("True or false? A $2,000 deduction means you automatically get $2,000 back.", ["True", "False"], 1, "It reduces the income used to calculate tax. Your tax savings depend on your tax situation."),
+        Question("Your savings grow inside the account. When is tax usually due under the ordinary rules?", ["Every time the account grows", "When you take money out"], 1, "In an RRSP, tax is generally deferred while the money stays inside."),
+        Question("You want to know how much you’re allowed to put in. What should you check?", ["Your notice of assessment and recent deposits", "Only what the investments are worth today"], 0, "The notice helps you check room. Recent deposits may already have used part of it.")
     ])
 
     static let rrspWithdrawals = Lesson(id: "rrsp-withdrawals", title: "Read an RRSP withdrawal", briefing: [

@@ -283,12 +283,6 @@ struct FinPetRoot: View {
 
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 13) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("Today").font(.system(.title, design: .serif, weight: .semibold))
-                        Spacer()
-                        Text(day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                            .font(.subheadline).foregroundStyle(muted)
-                    }
                     ForEach(Array(dailyLessons.enumerated()), id: \.element.id) { index, lesson in
                         challenge(lesson, key: "daily-\(dateKey(day))-\(lesson.id)", primary: index == 0)
                     }

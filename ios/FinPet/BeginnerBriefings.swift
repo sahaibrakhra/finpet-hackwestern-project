@@ -42,7 +42,9 @@ extension Lesson {
                     BriefingWord("Notice of assessment", "The summary the Canada Revenue Agency sends after it processes a tax return.", searching: ["assessment", "notice", "cra"]),
                     BriefingWord("Gross and net", "Gross is the amount before anything is taken off. Net is what actually reaches your bank account.", searching: ["gross", "net ", "received"]),
                     BriefingWord("Tax withheld", "Money taken out of the payment and sent toward your taxes. Your tax return determines the final amount.", searching: ["withheld", "withhold"]),
-                    BriefingWord("Direct transfer", "The institutions move the money between plans for you.", searching: ["transfer"])
+                    BriefingWord("Direct transfer", "The institutions move the money between plans for you.", searching: ["transfer"]),
+                    BriefingWord("Taxable income", "The amount of income used to calculate how much tax you owe.", searching: ["taxable income", "income subject to tax"]),
+                    BriefingWord("Employer match", "Money your workplace adds to your savings when you put in your own, up to its plan limit.", searching: ["employer", "payroll"])
                 ])
         case _ where id.hasPrefix("fhsa"):
             BeginnerGuide(situation: "Imagine you’re saving to buy your first home. A First Home Savings Account (FHSA) is a Canadian account for people who meet the first-home rules. This lesson shows how to tell what happens when money goes in or comes out.",
@@ -65,9 +67,11 @@ extension Lesson {
                     BriefingWord("Grace period", "Time when eligible purchases generally avoid interest if you pay the full statement balance on time.", searching: ["grace period"]),
                     BriefingWord("Posted", "A charge or payment the card issuer has recorded as complete.", searching: ["post", "pending"]),
                     BriefingWord("Principal", "The amount borrowed, before interest and fees.", searching: ["principal", "loan"]),
-                    BriefingWord("Credit limit", "The most the issuer allows you to borrow on the card.", searching: ["limit", "utilization"])
+                    BriefingWord("Credit limit", "The most the card company allows you to borrow.", searching: ["limit", "utilization"]),
+                    BriefingWord("Current balance", "The amount on the account right now. It can include new purchases since the last bill.", searching: ["current balance", "posted balance"]),
+                    BriefingWord("Issuer", "The bank or company that provides the card.", searching: ["issuer", "agreement"])
                 ])
-        case "investments", "fund-fees", "portfolio",
+        case "stock-ownership", "bond-lending", "investments", "fund-fees", "portfolio",
              _ where id.hasPrefix("invest-"):
             BeginnerGuide(situation: "Imagine you have money you won’t need right away and are comparing ways to invest it. Your choice affects how much it might grow, what it costs, and how much it might fall.",
                 words: [
@@ -77,7 +81,12 @@ extension Lesson {
                     BriefingWord("Portfolio", "The collection of investments you own.", searching: ["portfolio", "allocat", "holdings"]),
                     BriefingWord("Return", "How much an investment gains or loses, including money it pays you.", searching: ["return", "gain", "distribution"]),
                     BriefingWord("Fee", "Money you pay for a service, such as buying or managing an investment.", searching: ["fee", "commission"]),
-                    BriefingWord("Downturn", "A period when investments fall in value.", searching: ["downturn", "simulated loss"])
+                    BriefingWord("Downturn", "A period when investments fall in value.", searching: ["downturn", "simulated loss"]),
+                    BriefingWord("Issuer", "The company or government borrowing money by selling the bond.", searching: ["issuer"]),
+                    BriefingWord("Dividend", "A payment a company can choose to make to people who own its shares.", searching: ["dividend"]),
+                    BriefingWord("Diversification", "Spreading your money across investments so you depend less on any one of them.", searching: ["diversif"]),
+                    BriefingWord("Maturity", "The date a bond is scheduled to repay the amount borrowed.", searching: ["maturity"]),
+                    BriefingWord("Fund holdings", "The individual investments a fund owns.", searching: ["holdings", "fact sheet"])
                 ])
         default:
             BeginnerGuide(situation: "Imagine planning for a time when you’ll work less or stop working. The goal is to estimate what you’ll spend, when money will come in, and how much savings may need to cover.",
@@ -91,34 +100,41 @@ extension Lesson {
         }
     }
 
-    var quickTake: String {
-        if let intro = Self.tfsaQuickTakes[id] { return intro }
-        if let workshop = PracticeWorkshop.byID[id] { return workshop.rule }
-        return briefing.first ?? beginnerGuide.situation
-    }
-
-    private static let tfsaQuickTakes = [
-        "tfsa": "A Tax-Free Savings Account (TFSA) is a place to save or invest. If the money grows while it’s inside, the growth is generally free of Canadian tax.",
-        "tfsa-room": "Contribution room is the amount you can still put in. If you have accounts at two banks, both use the same room.",
-        "tfsa-timing": "Taking money out gives you cash today. The room to put that money back generally returns next January.",
-        "tfsa-payday": "A payday transfer uses room just like a manual deposit. Compare what you’ve put in, plus the next transfer, with the room you started with.",
-        "tfsa-records": "Add up the deposits from every bank. Each bank’s statement shows only what happened there.",
-        "tfsa-unused": "Unused room generally rolls into the next year. Think of it as space for future deposits that you haven’t used yet.",
-        "tfsa-transfer": "Switching banks? An eligible direct transfer lets the banks move the money without using new contribution room.",
-        "tfsa-loss": "A drop in price doesn’t give you more room. If you take out money, the actual withdrawal is what generally adds room back next year.",
-        "tfsa-next-year": "Two things can carry into January: room left unused and money you took out last year. Check both before you put more money in.",
-        "tfsa-product": "If tuition is due soon, check how much you can actually take out by the deadline. Some investments may have changed in price or be locked in."
-    ]
-
     var plainLanguageSteps: [String] {
         Self.tfsaSteps[id] ?? briefing
     }
 
-    var relevantWords: [BriefingWord] {
-        let reading = (plainLanguageSteps + example.rows.map(\.label) + questions.map(\.prompt))
-            .joined(separator: " ").lowercased()
-        return beginnerGuide.words.filter { word in word.search.contains { reading.contains($0.lowercased()) } }
+    private var languageInLesson: String {
+        ([title, beginnerGuide.situation, example.title, example.note] + plainLanguageSteps +
+         example.rows.flatMap { [$0.label, $0.value] } +
+         questions.flatMap { [$0.prompt, $0.feedback] + $0.choices }).joined(separator: " ")
     }
+
+    var abbreviations: [BriefingWord] {
+        let reading = languageInLesson
+        return Self.commonAbbreviations.filter { word in
+            reading.range(of: "\\b" + word.id + "s?\\b", options: .regularExpression) != nil
+        }
+    }
+
+    var relevantWords: [BriefingWord] {
+        let reading = languageInLesson.lowercased()
+        let named = Set(abbreviations.map(\.id))
+        return beginnerGuide.words.filter { word in
+            !named.contains(word.id) && word.search.contains { reading.contains($0.lowercased()) }
+        }
+    }
+
+    private static let commonAbbreviations = [
+        BriefingWord("TFSA", "Tax-Free Savings Account. A Canadian account where the money you earn inside is generally tax-free."),
+        BriefingWord("RRSP", "Registered Retirement Savings Plan. A Canadian account for saving for retirement."),
+        BriefingWord("FHSA", "First Home Savings Account. A Canadian account for eligible first-home buyers."),
+        BriefingWord("RRIF", "Registered Retirement Income Fund. An account that pays out money from retirement savings."),
+        BriefingWord("ETF", "Exchange-traded fund. A basket of investments you can buy or sell on a stock exchange."),
+        BriefingWord("GIC", "Guaranteed Investment Certificate. You typically leave money with a financial institution for a set time in exchange for interest."),
+        BriefingWord("CRA", "Canada Revenue Agency. The federal agency that administers Canadian taxes."),
+        BriefingWord("CAD", "Canadian dollars.")
+    ]
 
     private static let tfsaSteps: [String: [String]] = [
         "tfsa": [

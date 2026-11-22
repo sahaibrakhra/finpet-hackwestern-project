@@ -25,7 +25,8 @@ struct Question {
 enum LessonLibrary {
     static let daily = units.flatMap(\.lessons)
     static let units = [
-        LearningUnit(title: "Investing basics", lessons: [investments, fundFees, portfolio] + PracticeWorkshop.investing.map(\.lesson)),
+        LearningUnit(title: "Investing basics", lessons: [stockOwnership, bondLending, investments, fundFees, portfolio] +
+                     PracticeWorkshop.investing.filter { !["invest-risk-cash", "invest-fees-after"].contains($0.id) }.map(\.lesson)),
         LearningUnit(title: "Tax-Free Savings Accounts", lessons: [tfsa, tfsaRoom, tfsaTiming] + PracticeWorkshop.tfsa.map(\.lesson)),
         LearningUnit(title: "Registered Retirement Savings Plans", lessons: [rrsp, rrspWithdrawals, rrspCompare] + PracticeWorkshop.rrsp.map(\.lesson)),
         LearningUnit(title: "First Home Savings Accounts", lessons: [fhsa, fhsaWithdrawals, fhsaPlan] + PracticeWorkshop.fhsa.map(\.lesson)),
@@ -57,16 +58,40 @@ enum LessonLibrary {
         Question("You paid part of your statement. What can happen to the remaining balance?", ["It automatically disappears", "It may accrue interest"], 1, "Check the agreement for the interest rate and terms.")
     ])
 
-    static let investments = Lesson(id: "investments", title: "What investments hold", briefing: [
-        "A stock represents ownership in a company. A bond represents money lent to an issuer.",
-        "ETFs and mutual funds pool investments. A fund may spread your money across many holdings. Check what it holds and what it costs.",
-        "Diversification reduces reliance on a single holding, and investments can still lose value."
+    static let stockOwnership = Lesson(id: "stock-ownership", title: "Own a piece of a company", briefing: [
+        "Imagine a bakery is divided into tiny pieces of ownership. A share is one piece, and stock is what we call that kind of ownership. Buying a share makes you a part-owner.",
+        "You can make money if you sell a share for more than you paid. Some companies also pay owners a bit of cash called a dividend. The company can choose to reduce or stop those payments.",
+        "If the price falls and you sell, you can lose money. In this example you pay $20, sell for $23, and receive $1 along the way. Your gain is $4 before fees and taxes."
     ], questions: [
-        Question("What does a share of stock represent?", ["Ownership in a company", "A guaranteed interest payment"], 0, "A share represents partial ownership."),
-        Question("Which investment represents lending to an issuer?", ["A stock", "A bond"], 1, "A bond is a form of debt issued to raise money."),
-        Question("Which investment spreads exposure across multiple companies?", ["A single company’s shares", "A fund that holds many companies"], 1, "Check the fund’s holdings to see how widely it spreads exposure."),
-        Question("What can reduce the value you keep from a fund’s returns?", ["Its name", "The fund’s fees"], 1, "Fees reduce the return that stays with the investor."),
-        Question("Can a diversified ETF lose value?", ["Yes", "No"], 0, "Diversification spreads exposure, while overall markets can still fall.")
+        Question("You buy one share in a bakery. What did you buy?", ["A small piece of ownership", "A loan the bakery must repay", "A promise of free bread"], 0, "A share makes you a part-owner of the business."),
+        Question("The bakery shares some cash with its owners. What is that payment called?", ["A loan payment", "A dividend"], 1, "A dividend is money a company may choose to pay its owners."),
+        Question("You buy a share for $20, receive $1, and sell for $23. What did you gain before fees and taxes?", ["$3", "$4", "$24"], 1, "You made $3 when you sold it and received $1 while you owned it."),
+        Question("True or false? Owning a share guarantees you’ll receive a dividend.", ["True", "False"], 1, "Companies can pay, change, or skip dividends."),
+        Question("If you paid $20 and sell for $15 without receiving cash along the way, what happens?", ["You lose $5", "You still gain $5", "The company must pay the price back"], 0, "The sale returns $5 less than you paid.")
+    ])
+
+    static let bondLending = Lesson(id: "bond-lending", title: "Lend money by buying a bond", briefing: [
+        "Imagine a city needs money for a bridge. It can sell a bond. If you buy one at the start, you lend money to the city. You don’t own a piece of the city or the bridge.",
+        "The borrower promises to pay back the original amount on a set date. That date is called maturity. Many bonds also pay interest, which is money the borrower pays you for lending.",
+        "A promise still carries risk. The borrower might fail to pay. And if you sell the bond to someone else before the repayment date, the price you get can be lower than what you paid."
+    ], questions: [
+        Question("You buy a bond from a city that is building a bridge. What are you doing?", ["Buying part of the city", "Lending money to the city"], 1, "A bond is a loan to the borrower."),
+        Question("The city borrows $100 and promises $4 of interest. If both are paid, how much do you receive altogether?", ["$4", "$100", "$104"], 2, "You receive your $100 back plus $4 of interest."),
+        Question("The bond reaches maturity. What does that mean?", ["The scheduled repayment date arrived", "You become a part-owner"], 0, "Maturity is the scheduled date for paying back the original amount."),
+        Question("True or false? The borrower might fail to make a promised payment.", ["True", "False"], 0, "A promise to pay can be broken if the borrower cannot pay."),
+        Question("You sell a bond before its repayment date. Must another buyer pay exactly what you paid?", ["Yes", "No, the price can change"], 1, "Bonds can trade at different prices before repayment.")
+    ])
+
+    static let investments = Lesson(id: "investments", title: "Buy a basket of investments", briefing: [
+        "Buying one company’s shares puts the result in that one company’s hands. A fund pools money from many people to buy a basket of investments. Buying part of the fund gives you exposure to the basket.",
+        "An exchange-traded fund (ETF) is a fund that trades on a stock exchange, a marketplace for investments. A mutual fund is another kind of pooled fund. Check what either one actually holds.",
+        "Spreading money among different investments is called diversification. It can reduce the effect of one company doing badly. A whole basket can still fall."
+    ], questions: [
+        Question("What do you buy when you buy part of a fund?", ["One company chosen at random", "A share in a basket of investments"], 1, "The fund owns the basket. You own a part of the fund."),
+        Question("What does ETF mean?", ["Exchange-traded fund", "Extra tax fee"], 0, "ETF stands for exchange-traded fund."),
+        Question("You own one bakery stock and it falls. Why might a broad basket fall less?", ["The bakery is only one piece of the basket", "Funds can’t lose money"], 0, "The other holdings can do differently from the bakery."),
+        Question("True or false? A fund can lose value even if it holds many companies.", ["True", "False"], 0, "A drop can affect many companies at once."),
+        Question("Two funds have different names. How can you tell if they mostly own the same things?", ["Compare what they hold", "Compare the logos"], 0, "The list of investments shows whether the baskets overlap.")
     ])
 
     static let compounding = Lesson(id: "compounding", title: "Make growth compound", briefing: [
@@ -218,23 +243,34 @@ struct Quiz: View {
     private var briefingContent: some View {
         VStack(alignment: .leading, spacing: 17) {
             Text(lesson.title).font(.system(.largeTitle, design: .serif, weight: .semibold))
-            Text(lesson.quickTake).font(.title3.weight(.medium))
-            exampleCard
-            DisclosureGroup("Explanation and key terms") {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(lesson.beginnerGuide.situation)
-                    ForEach(lesson.plainLanguageSteps, id: \.self) { Text($0) }
-                    if !lesson.relevantWords.isEmpty {
-                        Divider()
-                        ForEach(lesson.relevantWords) { word in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(word.id).font(.subheadline.bold())
-                                Text(word.meaning).font(.subheadline).foregroundStyle(muted)
-                            }
-                        }
+            let steps = lesson.plainLanguageSteps
+            if !lesson.abbreviations.isEmpty {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(lesson.abbreviations) { word in
+                        (Text(word.id + "  ").bold() + Text(word.meaning))
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-            }.font(.subheadline).tint(forest)
+                }
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) { Rectangle().fill(palette.rule).frame(width: 2) }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
+                    Text(step).font(.body).lineSpacing(3)
+                }
+            }
+            exampleCard
+            if !lesson.relevantWords.isEmpty {
+                DisclosureGroup("What these words mean") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(lesson.relevantWords) { word in
+                            (Text(word.id + "  ").bold() + Text(word.meaning))
+                                .font(.subheadline)
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                }.font(.subheadline).tint(forest)
+            }
             if let chart = lesson.chart {
                 DisclosureGroup("See the numbers as a chart") { exampleChart(chart).padding(.top, 8) }
                     .font(.subheadline).tint(forest)

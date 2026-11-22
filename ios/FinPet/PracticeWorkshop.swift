@@ -69,9 +69,14 @@ struct PracticeWorkshop {
     }
 
     var example: LessonExample {
-        LessonExample("Worked example", [(first.0, first.1.formatted()), (second.0, second.1.formatted()),
+        func display(_ field: (String, Int)) -> (String, String) {
+            let money = field.0.hasSuffix(" (CAD)")
+            let label = money ? String(field.0.dropLast(6)) : field.0
+            return (label, (money ? "$" : "") + field.1.formatted())
+        }
+        return LessonExample("Worked example", [display(first), display(second),
               (result, "$" + operation.apply(first.1, second.1).formatted())],
-              "\(calculation(second.1)). All dollar figures are in CAD.")
+              calculation(second.1))
     }
 
     var lesson: Lesson {
@@ -83,8 +88,9 @@ struct PracticeWorkshop {
             Question("True or false? \(statement)", ["True", "False"], isTrue ? 0 : 1, rule),
             Question(decision, [alternative, best], 1, reason),
             calculationQuestion(change.0, value: change.1, position: 0),
-            Question("Which label describes the \(first.1.formatted()) figure in the worked example?",
-                     [result, first.0, second.0], 1, "Start with “\(first.0)” and use “\(second.0)” to find “\(result).”")
+            Question("Why does this situation matter when you make a decision?",
+                     [reason, "The larger number is enough to make the decision on its own."],
+                     0, reason)
         ])
     }
 
