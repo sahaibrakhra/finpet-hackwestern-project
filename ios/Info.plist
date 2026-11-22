@@ -2,11 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Where the FinPet backend runs: your Northflank public URL (https, no trailing slash), e.g.
-	     https://p01--backend--7vn56yvjf2r4.code.run . For a local server use http://localhost:8000 (simulator)
-	     or your computer's LAN IP (real iPhone). -->
+	<!-- Where the FinPet backend runs. Simulator: localhost works. Real iPhone: use your computer's LAN IP. -->
 	<key>FinPetBackendURL</key>
-	<string>https://p01--backend--7vn56yvjf2r4.code.run</string>
+	<string>http://localhost:8000</string>
 	<!-- Allow plain-HTTP calls to localhost / local-network IPs during development. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -14,6 +12,6 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>FinPet connects to a local development server when you run the backend on your own network.</string>
+	<string>FinPet connects to your development server to create your avatar.</string>
 </dict>
 </plist>

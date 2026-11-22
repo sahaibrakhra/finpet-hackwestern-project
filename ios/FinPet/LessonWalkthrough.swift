@@ -83,10 +83,10 @@ struct LessonWalkthrough {
         "invest-index": Self(
             Actor(name: "Index", icon: "list.bullet.rectangle"), Actor(name: "Fund", icon: "basket"),
             [
-                Beat("Measure a group", "500 companies", "The S&P 500 is an index: one number that summarizes the stock prices of 500 large U.S. companies.", .still),
-                Beat("What does large mean?", "Stock-market value", "Add up what all of a company’s shares are worth. A large company has a high total.", .still),
-                Beat("Build a matching basket", "Index fund", "A fund buys shares in roughly the same mix the index measures. If the index moves, the fund tries to move much the same way.", .forward),
-                Beat("Buy a slice of the basket", "One fund unit", "You buy a unit of the fund and get a small slice of its investments.", .still)
+                Beat("Follow the scoreboard", "500 companies", "The S&P 500 puts the performance of 500 major U.S. companies into one number.", .still),
+                Beat("Build the basket", "Index fund", "The fund uses the index as a guide to choose which shares to hold.", .forward),
+                Beat("Buy a slice", "One fund unit", "One purchase gives you a small piece of the whole basket.", .still),
+                Beat("Watch the basket move", "U.S. stocks fall", "When many of the companies fall together, the fund can fall too.", .down)
             ]
         ),
         "invest-holdings": Self(

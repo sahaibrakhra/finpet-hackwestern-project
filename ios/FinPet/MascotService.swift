@@ -29,12 +29,11 @@ struct MascotService {
         let frames: [Data]
     }
 
-    /// The deployed backend (Northflank) from `FinPetBackendURL` in Info.plist; localhost if it is unset.
-    /// To develop against a local server instead, set FinPetBackendURL to http://localhost:8000.
+    /// Use the configured LAN address on the simulator and physical devices.
     static var baseURL: URL {
         let local = URL(string: "http://localhost:8000")!
         guard let configured = Bundle.main.object(forInfoDictionaryKey: "FinPetBackendURL") as? String,
-              let url = URL(string: configured.trimmingCharacters(in: .whitespaces)), url.host != nil else { return local }
+              let url = URL(string: configured), url.host != nil else { return local }
         return url
     }
 

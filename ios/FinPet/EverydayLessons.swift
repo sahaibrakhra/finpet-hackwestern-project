@@ -29,19 +29,19 @@ enum EverydayLessons {
         ])
 
     static let index = EverydayLesson(
-        "invest-index", "What the S&P 500 actually does",
-        "The S&P 500 tracks the stock prices of 500 large U.S. companies together.",
-        LessonExample("From measurement to purchase", [("Index", "Measures the group’s stock prices"),
-            ("Index fund", "Buys stocks to try to follow that measure"), ("What you buy", "A unit of the fund")],
-            "The index measures. The fund owns investments."),
-        ["An index is a number that summarizes how a group of investments is doing. Think of a class average: one score tells you how the class did overall, even though individual students got different marks. The S&P 500 uses a group of 500 U.S. companies to summarize how their shares are doing.",
-         "Large means the company’s shares are worth a lot when you add their value together. It’s about the company’s total stock-market value, not the height of its buildings or how many people it employs. In this index, companies with more stock-market value generally move the index more.",
-         "You can’t buy the index number. An index fund is an investment that tries to match the index. An S&P 500 fund does that by typically buying the companies’ shares in roughly the same proportions. Buying one unit gives you a small slice of that basket. One struggling company matters less than if you owned just that company, but the basket can still fall. This basket focuses on large U.S. companies. It doesn’t give you bonds or a worldwide mix."],
+        "invest-index", "Invest in a basket of companies",
+        "An S&P 500 fund lets you invest in hundreds of U.S. companies with one purchase.",
+        LessonExample("From the scoreboard to your account", [("S&P 500 index", "Tracks the shares of 500 major U.S. companies"),
+            ("Index fund", "Holds investments to follow the index"), ("Fund unit", "Your small piece of the basket")],
+            "The fund gives you a way to invest in the group the index tracks."),
+        ["Imagine a scoreboard that shows how a group of stocks is doing. That’s an index. The S&P 500 tracks 500 major U.S. companies. Company size here comes from stock-market value, the total price of all the company’s shares added together.",
+         "An index fund uses the scoreboard as a guide. An S&P 500 fund typically holds shares in the companies the index tracks. When you buy one unit of the fund, you own a small piece of that basket.",
+         "Suppose you’re putting money aside for a goal years away. With the fund, one company’s bad year has less impact than if you put all your money into that company. A broad fall in U.S. stocks can still pull the fund down. The basket is focused on major U.S. companies, so check what else you’d need if you want bonds or companies in other countries."],
         [
             Question("A friend says they bought the S&P 500. What did they most likely buy?", ["Units of a fund that tracks the index", "The number shown on the index scoreboard"], 0, "An index is a measurement. A fund is an investment you can actually buy."),
             Question("Why might someone prefer this fund to owning a single company’s shares?", ["One company matters less when they own many", "The fund can never fall"], 0, "The benefit is spreading exposure across companies."),
             Question("You want bonds and non-U.S. stocks too. Does this index provide all of that?", ["Yes, 500 companies means every asset is included", "No, it focuses on large U.S. companies"], 1, "A broad spread within the U.S. is different from a spread across countries and investment types."),
-            Question("What does ‘large’ refer to in the S&P 500?", ["How many shops the company has", "How much the company’s shares are worth together"], 1, "Company size here is about stock-market value. Larger companies generally have more influence on this index."),
+            Question("Two funds both track the S&P 500. Would buying both give you a very different mix of companies?", ["Yes, because the funds have different names", "Probably very little difference, because both follow the same group"], 1, "Start by checking what each fund follows. The next lesson shows where to find that information."),
             Question("You need your money for a car deposit in two months. What’s a real concern with this fund?", ["U.S. stocks can drop before the deposit is due", "The index only updates once a decade"], 0, "Owning many companies still leaves you exposed to an overall market drop.")
         ])
 
